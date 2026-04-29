@@ -574,6 +574,7 @@ def main():
                                 status_message = ""
 
                         else:
+                            human_player = game_manager.players[human_idx]
                             if human_idx is not None and cp.is_human and dragging_slot is None:
                                 card_rects = renderer.get_card_rects(human_idx, game_manager)
                                 for slot_idx, rect in enumerate(card_rects):
