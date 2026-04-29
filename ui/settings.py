@@ -379,12 +379,12 @@ class SettingsMenu:
     def draw_gear_icon(self, mouse_pos, settings_open=False):
         rect = self.get_gear_rect()
         hovered = rect.collidepoint(mouse_pos) and not settings_open
-        bg_col = (20, 20, 15) if hovered else (12, 12, 10)
-        border_col = GOLD if hovered else (80, 70, 30)
-        gear_col = GOLD if hovered else (180, 150, 50)
+        bg_col = (35, 35, 28) if hovered else (25, 25, 18)
+        border_col = GOLD
+        gear_col = GOLD
         bg_rect = pygame.Rect(rect.x - 4, rect.y - 4, rect.width + 8, rect.height + 8)
         self._draw_rounded_rect(self.screen, bg_col, bg_rect, 6)
-        pygame.draw.rect(self.screen, border_col, bg_rect, 1, border_radius=6)
+        pygame.draw.rect(self.screen, border_col, bg_rect, 2, border_radius=6)
         gear_surf = self.font.render('\u2699', True, gear_col)
         gear_rect = gear_surf.get_rect(center=rect.center)
         self.screen.blit(gear_surf, gear_rect)

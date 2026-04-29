@@ -147,26 +147,34 @@ class Renderer:
         gradient_surf = pygame.Surface((SCREEN_WIDTH, STATUS_BAR_H))
         for i in range(STATUS_BAR_H):
             t = i / STATUS_BAR_H
-            r = int(25 + 10 * t)
-            g = int(55 + 20 * t)
-            b = int(30 + 10 * t)
+            r = int(22 + 12 * t)
+            g = int(52 + 22 * t)
+            b = int(28 + 14 * t)
             gradient_surf.set_at((0, i), (r, g, b))
             for j in range(1, SCREEN_WIDTH):
                 gradient_surf.set_at((j, i), (r, g, b))
         self.screen.blit(gradient_surf, (0, 0))
-        pygame.draw.line(self.screen, (50, 100, 60), (0, 1), (SCREEN_WIDTH, 1))
-        pygame.draw.line(self.screen, GOLD, (0, STATUS_BAR_H - 2), (SCREEN_WIDTH, STATUS_BAR_H - 2))
-        pygame.draw.line(self.screen, (100, 60, 20), (0, STATUS_BAR_H - 1), (SCREEN_WIDTH, STATUS_BAR_H - 1))
+        pygame.draw.line(self.screen, (60, 120, 70), (0, 0), (SCREEN_WIDTH, 0), 2)
+        pygame.draw.line(self.screen, (40, 80, 50), (0, 1), (SCREEN_WIDTH, 1), 1)
+        pygame.draw.line(self.screen, GOLD, (0, STATUS_BAR_H - 2), (SCREEN_WIDTH, STATUS_BAR_H - 2), 1)
+        pygame.draw.line(self.screen, (100, 55, 15), (0, STATUS_BAR_H - 1), (SCREEN_WIDTH, STATUS_BAR_H - 1), 1)
         state_label = STATE_LABELS.get(game_manager.state, str(game_manager.state.value))
         current_player = game_manager.current_player()
+        avatar_rect = pygame.Rect(14, (STATUS_BAR_H - 28) // 2, 28, 28)
+        pygame.draw.circle(self.screen, (40, 70, 50), avatar_rect.center, 14)
+        pygame.draw.circle(self.screen, GOLD, avatar_rect.center, 14, 2)
+        initial_surf = self.small_font.render(current_player.name[0].upper(), True, GOLD)
+        initial_rect = initial_surf.get_rect(center=avatar_rect.center)
+        self.screen.blit(initial_surf, initial_rect)
         round_surf = self.ui_font.render(f"Round {game_manager.round_number}", True, TEXT_DIM)
-        self.screen.blit(round_surf, (12, (STATUS_BAR_H - round_surf.get_height()) // 2))
+        text_x = avatar_rect.right + 16
+        self.screen.blit(round_surf, (text_x, (STATUS_BAR_H - round_surf.get_height()) // 2))
         name_surf = self.ui_font.render(current_player.name, True, GOLD)
-        self.screen.blit(name_surf, (120, (STATUS_BAR_H - name_surf.get_height()) // 2))
-        sep = self.small_font.render("◆", True, GOLD)
-        self.screen.blit(sep, (116 + round_surf.get_width(), (STATUS_BAR_H - sep.get_height()) // 2))
+        name_x = text_x + round_surf.get_width() + 20
+        self.screen.blit(name_surf, (name_x, (STATUS_BAR_H - name_surf.get_height()) // 2))
         state_surf = self.small_font.render(state_label, True, TEXT_DIM)
-        self.screen.blit(state_surf, (120 + name_surf.get_width() + 12, (STATUS_BAR_H - state_surf.get_height()) // 2 + 1))
+        state_x = name_x + name_surf.get_width() + 16
+        self.screen.blit(state_surf, (state_x, (STATUS_BAR_H - state_surf.get_height()) // 2 + 2))
 
     def draw_card_face(self, x, y, card, selected=False, hovered=False, show_power_label=False):
         rect = pygame.Rect(x, y, CARD_WIDTH, CARD_HEIGHT)
@@ -491,12 +499,14 @@ class Renderer:
         num_players = len(game_manager.players)
         card_positions = self._compute_card_positions(player, position, game_manager)
 
+        bounds = _player_area_bounds(player.seat_index, num_players)
         if layout == 'free':
-            bounds = _player_area_bounds(player.seat_index, num_players)
             self._draw_area_outline(bounds)
 
         name_color = GOLD if is_current else TEXT_WHITE
-        name_y = card_positions[0][1] - CARD_HEIGHT // 2 - 50 if card_positions else py - 70
+        raw_name_y = card_positions[0][1] - CARD_HEIGHT // 2 - 50 if card_positions else py - 70
+        _, y_min, _, y_max = bounds
+        name_y = max(y_min + 20, min(raw_name_y, y_max - CARD_HEIGHT - 60))
         name_surf = self.ui_font.render(player.name, True, name_color)
         name_rect = name_surf.get_rect(center=(px, name_y))
         if is_current:
