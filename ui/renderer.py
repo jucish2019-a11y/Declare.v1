@@ -496,33 +496,27 @@ class Renderer:
             self._draw_area_outline(bounds)
 
         name_color = GOLD if is_current else TEXT_WHITE
-        name_y = card_positions[0][1] - 28 if card_positions else py - 50
+        name_y = card_positions[0][1] - CARD_HEIGHT // 2 - 50 if card_positions else py - 70
         name_surf = self.ui_font.render(player.name, True, name_color)
-        name_rect_center = (px, name_y + name_surf.get_height() // 2)
-        name_rect = name_surf.get_rect(center=name_rect_center)
-        self.screen.blit(name_surf, name_rect)
+        name_rect = name_surf.get_rect(center=(px, name_y))
         if is_current:
             alpha = int(80 + 40 * math.sin(self._pulse_time * 3))
             glow_rect = name_rect.inflate(20, 10)
             glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
             pygame.draw.rect(glow_surf, (*GOLD, alpha), glow_surf.get_rect(), border_radius=6)
             self.screen.blit(glow_surf, glow_rect.topleft)
-            self.screen.blit(name_surf, name_rect)
-        info_y = name_y + name_surf.get_height() + 2
+        pill_surf = pygame.Surface((name_rect.width + 16, name_rect.height + 8), pygame.SRCALPHA)
+        pygame.draw.rect(pill_surf, (*BG_DARK, 180), pill_surf.get_rect(), border_radius=6)
+        self.screen.blit(pill_surf, (name_rect.centerx - name_rect.width // 2 - 8, name_rect.centery - name_rect.height // 2 - 4))
+        self.screen.blit(name_surf, name_rect)
+        info_y = name_y + name_surf.get_height() + 4
         if is_human:
-            info_text = f"Cards: {player.card_count} | Score: ???"
+            info_text = f"Cards: {player.card_count}"
         else:
             info_text = f"Cards: {player.card_count}"
         info_surf = self.small_font.render(info_text, True, TEXT_DIM)
-        info_rect = info_surf.get_rect(center=(px, info_y + info_surf.get_height() // 2))
+        info_rect = info_surf.get_rect(center=(px, info_y))
         self.screen.blit(info_surf, info_rect)
-        if is_current and is_human:
-            arrow_surf = self.small_font.render("\u25b6 YOUR TURN", True, GOLD)
-            arrow_rect = arrow_surf.get_rect(center=(px, info_y + info_surf.get_height() + 12))
-            self.screen.blit(arrow_surf, arrow_rect)
-
-        if is_human and is_current:
-            pass
 
         for slot_index in range(HAND_SIZE):
             card = player.hand[slot_index]

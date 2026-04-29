@@ -15,13 +15,16 @@ from config import (
 
 class SettingsMenu:
     PANEL_W = 600
-    PANEL_H = 520
+    PANEL_H = 580
     PANEL_X = (SCREEN_WIDTH - PANEL_W) // 2
     PANEL_Y = (SCREEN_HEIGHT - PANEL_H) // 2
     GEAR_X = SCREEN_WIDTH - 52
     GEAR_Y = 8
     GEAR_W = 40
     GEAR_H = 34
+
+    SOFT_AMBER = (220, 170, 50)
+    SOFT_AMBER_HOVER = (240, 190, 60)
 
     def __init__(self, screen):
         self.screen = screen
@@ -36,148 +39,150 @@ class SettingsMenu:
     def _build_controls(self):
         self._controls = []
         sx = self.PANEL_X + 20
-        sy = self.PANEL_Y + 50
-        line_h = 32
+        sy = self.PANEL_Y + 52
+        line_h = 34
         btn_h = 28
 
         self._controls.append({
             'type': 'section', 'text': 'CARD LAYOUT',
             'rect': pygame.Rect(sx, sy, 200, 20)
         })
-        sy += 24
+        sy += 26
         for i, (mode, label) in enumerate(zip(LAYOUT_OPTIONS, LAYOUT_LABELS)):
             bx = sx + i * 105
             self._controls.append({
                 'type': 'layout_btn', 'value': mode, 'label': label,
                 'rect': pygame.Rect(bx, sy, 100, btn_h)
             })
-        sy += line_h + 8
+        sy += line_h + 12
 
         self._controls.append({
             'type': 'section', 'text': 'GAME SPEED',
             'rect': pygame.Rect(sx, sy, 200, 20)
         })
-        sy += 24
-        ai_labels_str = ' / '.join(f'{v:.1f}s' for v in AI_DELAY_OPTIONS)
+        sy += 26
         self._controls.append({
-            'type': 'label', 'text': f'AI Delay ({ai_labels_str})',
-            'rect': pygame.Rect(sx, sy, 200, 18)
+            'type': 'label', 'text': 'AI Delay:',
+            'rect': pygame.Rect(sx, sy + 4, 90, 20)
         })
-        sy += 18
         for i, (val, lbl) in enumerate(zip(AI_DELAY_OPTIONS, AI_DELAY_LABELS)):
-            bx = sx + i * 105
+            bx = sx + 95 + i * 105
             self._controls.append({
                 'type': 'ai_delay_btn', 'value': val, 'label': lbl,
                 'rect': pygame.Rect(bx, sy, 100, btn_h)
             })
         sy += line_h
+        self._controls.append({
+            'type': 'label', 'text': 'Peek Reveal:',
+            'rect': pygame.Rect(sx, sy + 4, 90, 20)
+        })
         for i, (val, lbl) in enumerate(zip(PEEK_REVEAL_OPTIONS, PEEK_REVEAL_LABELS)):
-            bx = sx + i * 105
+            bx = sx + 95 + i * 105
             self._controls.append({
                 'type': 'peek_reveal_btn', 'value': val, 'label': lbl,
                 'rect': pygame.Rect(bx, sy, 100, btn_h)
             })
         sy += line_h
+        self._controls.append({
+            'type': 'label', 'text': 'Animations:',
+            'rect': pygame.Rect(sx, sy + 4, 90, 20)
+        })
         for i, (val, lbl) in enumerate(zip(ANIMATION_OPTIONS, ANIMATION_LABELS)):
-            bx = sx + i * 105
+            bx = sx + 95 + i * 105
             self._controls.append({
                 'type': 'anim_btn', 'value': val, 'label': lbl,
                 'rect': pygame.Rect(bx, sy, 100, btn_h)
             })
-        sy += line_h + 8
+        sy += line_h + 12
 
         self._controls.append({
             'type': 'section', 'text': 'AI DIFFICULTY',
             'rect': pygame.Rect(sx, sy, 200, 20)
         })
-        sy += 24
+        sy += 26
         self._controls.append({
             'type': 'label', 'text': 'Note: difficulty affects declare threshold',
-            'rect': pygame.Rect(sx, sy, 400, 18)
+            'rect': pygame.Rect(sx, sy + 4, 400, 20)
         })
-        sy += 18
+        sy += line_h
         for i, (val, lbl) in enumerate(zip(AI_DIFFICULTY_OPTIONS, AI_DIFFICULTY_LABELS)):
             bx = sx + i * 105
             self._controls.append({
                 'type': 'ai_diff_btn', 'value': val, 'label': lbl,
                 'rect': pygame.Rect(bx, sy, 100, btn_h)
             })
-        sy += line_h + 8
+        sy += line_h + 12
 
         self._controls.append({
             'type': 'section', 'text': 'DISPLAY',
             'rect': pygame.Rect(sx, sy, 200, 20)
         })
-        sy += 24
-        for i, (val, lbl) in enumerate(zip([True, False], ['ON', 'OFF'])):
-            bx = sx + i * 105
-            self._controls.append({
-                'type': 'score_btn', 'value': val, 'label': lbl,
-                'rect': pygame.Rect(bx, sy, 100, btn_h)
-            })
-        bx = sx + 2 * 105
+        sy += 26
         self._controls.append({
             'type': 'label', 'text': 'Show Own Score:',
             'rect': pygame.Rect(sx, sy + 4, 130, 20)
         })
-        sy += line_h
         for i, (val, lbl) in enumerate(zip([True, False], ['ON', 'OFF'])):
-            bx = sx + i * 105
+            bx = sx + 140 + i * 105
             self._controls.append({
-                'type': 'marker_btn', 'value': val, 'label': lbl,
+                'type': 'score_btn', 'value': val, 'label': lbl,
                 'rect': pygame.Rect(bx, sy, 100, btn_h)
             })
-        bx = sx + 2 * 105
+        sy += line_h
         self._controls.append({
             'type': 'label', 'text': 'Known Markers:',
             'rect': pygame.Rect(sx, sy + 4, 130, 20)
         })
-        sy += line_h
         for i, (val, lbl) in enumerate(zip([True, False], ['ON', 'OFF'])):
-            bx = sx + i * 105
+            bx = sx + 140 + i * 105
             self._controls.append({
-                'type': 'log_btn', 'value': val, 'label': lbl,
+                'type': 'marker_btn', 'value': val, 'label': lbl,
                 'rect': pygame.Rect(bx, sy, 100, btn_h)
             })
-        bx = sx + 2 * 105
+        sy += line_h
         self._controls.append({
             'type': 'label', 'text': 'Game Log:',
             'rect': pygame.Rect(sx, sy + 4, 130, 20)
         })
-        sy += line_h + 8
+        for i, (val, lbl) in enumerate(zip([True, False], ['ON', 'OFF'])):
+            bx = sx + 140 + i * 105
+            self._controls.append({
+                'type': 'log_btn', 'value': val, 'label': lbl,
+                'rect': pygame.Rect(bx, sy, 100, btn_h)
+            })
+        sy += line_h + 12
 
         self._controls.append({
             'type': 'section', 'text': 'GAMEPLAY',
             'rect': pygame.Rect(sx, sy, 200, 20)
         })
-        sy += 24
-        for i, (val, lbl) in enumerate(zip([True, False], ['ON', 'OFF'])):
-            bx = sx + i * 105
-            self._controls.append({
-                'type': 'confirm_btn', 'value': val, 'label': lbl,
-                'rect': pygame.Rect(bx, sy, 100, btn_h)
-            })
-        bx = sx + 2 * 105
+        sy += 26
         self._controls.append({
             'type': 'label', 'text': 'Confirm Declare:',
             'rect': pygame.Rect(sx, sy + 4, 130, 20)
         })
-        sy += line_h
-        for i, (val, lbl) in enumerate(zip(PEEK_PHASE_OPTIONS, PEEK_PHASE_LABELS)):
-            bx = sx + i * 90
+        for i, (val, lbl) in enumerate(zip([True, False], ['ON', 'OFF'])):
+            bx = sx + 140 + i * 105
             self._controls.append({
-                'type': 'peek_phase_btn', 'value': val, 'label': lbl,
-                'rect': pygame.Rect(bx, sy, 85, btn_h)
+                'type': 'confirm_btn', 'value': val, 'label': lbl,
+                'rect': pygame.Rect(bx, sy, 100, btn_h)
             })
+        sy += line_h
         self._controls.append({
             'type': 'label', 'text': 'Peek Phase:',
-            'rect': pygame.Rect(sx, sy + 4, 130, 20)
+            'rect': pygame.Rect(sx, sy + 4, 90, 20)
         })
-        sy += line_h + 12
+        for i, (val, lbl) in enumerate(zip(PEEK_PHASE_OPTIONS, PEEK_PHASE_LABELS)):
+            bx = sx + 95 + i * 85
+            self._controls.append({
+                'type': 'peek_phase_btn', 'value': val, 'label': lbl,
+                'rect': pygame.Rect(bx, sy, 80, btn_h)
+            })
+        sy += line_h + 14
 
         done_rect = pygame.Rect(
             self.PANEL_X + self.PANEL_W // 2 - 70,
-            sy, 140, 36
+            sy, 140, 38
         )
         self._controls.append({
             'type': 'done_btn', 'rect': done_rect
@@ -315,25 +320,25 @@ class SettingsMenu:
                     active = abs(game_settings.peek_phase_seconds - ctrl['value']) < 0.05
 
                 hovered = (self._hovered is ctrl)
-                base_color = GOLD if active else ((120, 120, 120) if hovered else (70, 70, 70))
+                active_color = self.SOFT_AMBER if active else ((120, 120, 120) if hovered else (70, 70, 70))
                 txt_color = BG_DARK if active else (TEXT_WHITE if hovered else TEXT_DIM)
 
                 shadow_s = pygame.Surface((rect.width + 3, rect.height + 3), pygame.SRCALPHA)
                 pygame.draw.rect(shadow_s, (0, 0, 0, 50), (1, 2, rect.width, rect.height), border_radius=5)
                 self.screen.blit(shadow_s, (rect.x - 1, rect.y + 2))
 
-                self._draw_rounded_rect(self.screen, base_color, rect, 5)
+                self._draw_rounded_rect(self.screen, active_color, rect, 5)
 
-                c_r = max(base_color[0] - 35, 0)
-                c_g = max(base_color[1] - 35, 0)
-                c_b = max(base_color[2] - 35, 0)
+                c_r = max(active_color[0] - 35, 0)
+                c_g = max(active_color[1] - 35, 0)
+                c_b = max(active_color[2] - 35, 0)
                 pygame.draw.line(self.screen, (c_r, c_g, c_b),
                                 (rect.left + 2, rect.bottom - 2), (rect.right - 2, rect.bottom - 2), 2)
                 pygame.draw.line(self.screen, (c_r, c_g, c_b),
                                 (rect.right - 2, rect.top + 2), (rect.right - 2, rect.bottom - 2), 2)
-                l_r = min(base_color[0] + 45, 255)
-                l_g = min(base_color[1] + 45, 255)
-                l_b = min(base_color[2] + 45, 255)
+                l_r = min(active_color[0] + 45, 255)
+                l_g = min(active_color[1] + 45, 255)
+                l_b = min(active_color[2] + 45, 255)
                 pygame.draw.line(self.screen, (l_r, l_g, l_b),
                                 (rect.left + 2, rect.top + 2), (rect.right - 2, rect.top + 2), 2)
                 pygame.draw.line(self.screen, (l_r, l_g, l_b),
@@ -345,31 +350,24 @@ class SettingsMenu:
 
             elif ctype == 'done_btn':
                 hovered = rect.collidepoint(mouse_pos)
-                color = (80, 200, 210) if hovered else (60, 170, 190)
+                bg_color = (20, 20, 20) if hovered else (15, 15, 15)
 
                 shadow_s = pygame.Surface((rect.width + 4, rect.height + 4), pygame.SRCALPHA)
                 pygame.draw.rect(shadow_s, (0, 0, 0, 60), (2, 3, rect.width, rect.height), border_radius=8)
                 self.screen.blit(shadow_s, (rect.x - 2, rect.y + 3))
 
-                self._draw_rounded_rect(self.screen, color, rect, 8)
+                self._draw_rounded_rect(self.screen, bg_color, rect, 8)
+                pygame.draw.rect(self.screen, GOLD, rect, 1, border_radius=8)
 
-                c_r = max(color[0] - 35, 0)
-                c_g = max(color[1] - 35, 0)
-                c_b = max(color[2] - 35, 0)
-                pygame.draw.line(self.screen, (c_r, c_g, c_b),
-                                (rect.left + 3, rect.bottom - 3), (rect.right - 3, rect.bottom - 3), 2)
-                pygame.draw.line(self.screen, (c_r, c_g, c_b),
-                                (rect.right - 3, rect.top + 3), (rect.right - 3, rect.bottom - 3), 2)
-                l_r = min(color[0] + 40, 255)
-                l_g = min(color[1] + 40, 255)
-                l_b = min(color[2] + 40, 255)
+                l_r = min(GOLD[0] + 30, 255)
+                l_g = min(GOLD[1] + 30, 255)
+                l_b = min(GOLD[2] + 30, 255)
                 pygame.draw.line(self.screen, (l_r, l_g, l_b),
-                                (rect.left + 3, rect.top + 3), (rect.right - 3, rect.top + 3), 2)
+                                (rect.left + 3, rect.top + 3), (rect.right - 3, rect.top + 3), 1)
                 pygame.draw.line(self.screen, (l_r, l_g, l_b),
-                                (rect.left + 3, rect.top + 3), (rect.left + 3, rect.bottom - 3), 2)
+                                (rect.left + 3, rect.top + 3), (rect.left + 3, rect.bottom - 3), 1)
 
-                pygame.draw.rect(self.screen, TEXT_WHITE, rect, 1, border_radius=8)
-                done_surf = self.font.render("Done", True, TEXT_WHITE)
+                done_surf = self.font.render("Done", True, GOLD)
                 done_rect = done_surf.get_rect(center=rect.center)
                 self.screen.blit(done_surf, done_rect)
 
@@ -381,11 +379,13 @@ class SettingsMenu:
     def draw_gear_icon(self, mouse_pos, settings_open=False):
         rect = self.get_gear_rect()
         hovered = rect.collidepoint(mouse_pos) and not settings_open
-        color = (160, 160, 160) if hovered else (100, 100, 100)
-        bg_color = (30, 30, 30) if hovered else (20, 20, 20)
+        bg_col = (20, 20, 15) if hovered else (12, 12, 10)
+        border_col = GOLD if hovered else (80, 70, 30)
+        gear_col = GOLD if hovered else (180, 150, 50)
         bg_rect = pygame.Rect(rect.x - 4, rect.y - 4, rect.width + 8, rect.height + 8)
-        self._draw_rounded_rect(self.screen, bg_color, bg_rect, 6)
-        gear_surf = self.font.render('\u2699', True, color)
+        self._draw_rounded_rect(self.screen, bg_col, bg_rect, 6)
+        pygame.draw.rect(self.screen, border_col, bg_rect, 1, border_radius=6)
+        gear_surf = self.font.render('\u2699', True, gear_col)
         gear_rect = gear_surf.get_rect(center=rect.center)
         self.screen.blit(gear_surf, gear_rect)
         return rect
