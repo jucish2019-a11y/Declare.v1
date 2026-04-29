@@ -42,9 +42,14 @@ class Player:
         other_player.hand[their_slot] = my_card
         self.known_cards.pop(my_slot, None)
         other_player.known_cards.pop(their_slot, None)
+        self.known_opponent_cards.pop((other_player.seat_index, their_slot), None)
+        other_player.known_opponent_cards.pop((self.seat_index, my_slot), None)
 
     def get_active_slots(self) -> list:
         return [i for i, slot in enumerate(self.hand) if slot is not None]
+
+    def reset_targeting_state(self):
+        pass
 
 
 class HumanPlayer(Player):

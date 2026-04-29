@@ -1,10 +1,10 @@
 import random
-from config import CARD_VALUES, POWER_CARDS
+from config import CARD_VALUES, POWER_CARDS, POWER_LABELS
 from game.card import Card
 
 
 class AIDecider:
-    THRESHOLDS = {'easy': 8, 'normal': 10, 'hard': 12}
+    THRESHOLDS = {'easy': 8, 'medium': 10, 'normal': 10, 'hard': 12}
 
     def __init__(self, player, game_state):
         self.player = player
@@ -27,7 +27,11 @@ class AIDecider:
     def choose_action(self, drawn_card: Card) -> dict:
         for slot_idx, card in self.player.known_cards.items():
             if self.player.hand[slot_idx] is not None and card.rank == drawn_card.rank:
-                return {'action': 'pair_own', 'target_slot': slot_idx}
+                return {
+                    'action': 'pair_own',
+                    'target_slot': slot_idx,
+                    'log_message': f"{self.player.name} paired own card (slot {slot_idx})",
+                }
 
         for (p_idx, s_idx), card in self.player.known_opponent_cards.items():
             if card.rank == drawn_card.rank:
@@ -36,22 +40,32 @@ class AIDecider:
                     'action': 'pair_opponent',
                     'target_slot': give_slot,
                     'target_player': p_idx,
+                    'log_message': f"{self.player.name} paired opponent's card",
                 }
 
         if drawn_card.power is not None:
             beneficial = self._is_power_beneficial(drawn_card)
             if beneficial:
+                label = POWER_LABELS.get(drawn_card.power, drawn_card.power)
                 return {
                     'action': 'play_power',
                     'power': drawn_card.power,
                     'target_player': self._power_target(drawn_card),
+                    'log_message': f"{self.player.name} used {label}",
                 }
 
         worst_slot = self.estimate_worst_slot()
         if worst_slot is not None and drawn_card.value < self._slot_estimated_value(worst_slot):
-            return {'action': 'swap', 'target_slot': worst_slot}
+            return {
+                'action': 'swap',
+                'target_slot': worst_slot,
+                'log_message': f"{self.player.name} swapped card",
+            }
 
-        return {'action': 'discard'}
+        return {
+            'action': 'discard',
+            'log_message': f"{self.player.name} discarded {drawn_card.display_name}",
+        }
 
     def _slot_estimated_value(self, slot_idx: int) -> int:
         if slot_idx in self.player.known_cards:

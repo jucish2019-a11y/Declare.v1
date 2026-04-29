@@ -1,4 +1,4 @@
-from config import HAND_SIZE
+from config import HAND_SIZE, POWER_LABELS
 from game.card import Card
 from game.player import Player
 
@@ -12,7 +12,7 @@ def has_zero_cards(player: Player) -> bool:
 
 
 def can_declare(player: Player, has_drawn_this_turn: bool) -> bool:
-    return not has_drawn_this_turn
+    return not player.is_declaring
 
 
 def resolve_declare(declarer: Player, all_players: list) -> dict:
@@ -35,15 +35,54 @@ def resolve_declare(declarer: Player, all_players: list) -> dict:
         if p.seat_index != declarer.seat_index
     )
 
+    result_scores = dict(scores)
     if not declarer_won:
-        scores[declarer.seat_index] = declarer_score * 2
+        result_scores[declarer.seat_index] = declarer_score * 2
 
     return {
         'winner': declarer if declarer_won else None,
-        'scores': scores,
+        'scores': result_scores,
         'declarer_won': declarer_won,
         'auto_win': False,
     }
+
+
+def format_action_log(action: str, player_name: str, details: dict = None, card: Card = None) -> str:
+    if action == 'declare':
+        return f"{player_name} declared!"
+
+    if action == 'draw':
+        card_str = card.display_name if card else '?'
+        return f"{player_name} drew {card_str}"
+
+    if action == 'swap':
+        slot = details.get('my_slot') if details else None
+        if slot is not None:
+            return f"{player_name} swapped with slot {slot}"
+        return f"{player_name} swapped card"
+
+    if action == 'discard':
+        card_str = card.display_name if card else '?'
+        return f"{player_name} discarded {card_str}"
+
+    if action in ('pair_own',):
+        return f"{player_name} paired own card"
+
+    if action in ('pair_opponent',):
+        return f"{player_name} paired opponent's card"
+
+    if action == 'play_power':
+        power = details.get('power') if details else None
+        label = POWER_LABELS.get(power, power or 'power')
+        if power == 'peek_self':
+            slot = details.get('slot') if details else None
+            return f"{player_name} used {label} on slot {slot}" if slot is not None else f"{player_name} used {label}"
+        if power == 'peek_opponent':
+            p_idx = details.get('target_player') if details else None
+            return f"{player_name} used {label} on P{p_idx}" if p_idx is not None else f"{player_name} used {label}"
+        return f"{player_name} used {label}"
+
+    return f"{player_name}: {action}"
 
 
 def validate_pair(card1: Card, card2: Card) -> bool:
@@ -167,6 +206,9 @@ def get_valid_actions(player: Player, drawn_card: Card = None, has_drawn: bool =
         if card.rank == drawn_card.rank:
             actions.append('pair_opponent')
             break
+
+    if can_declare(player, True):
+        actions.append('declare')
 
     return actions
 
