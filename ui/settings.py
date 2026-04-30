@@ -1,7 +1,9 @@
 import pygame
+import math
 from config import (
-    SCREEN_WIDTH, SCREEN_HEIGHT, BG_DARK, CARD_WHITE, BLACK, RED,
-    GOLD, TEXT_WHITE, TEXT_BLACK, TEXT_DIM, PANEL_BG, PANEL_BORDER,
+    SCREEN_WIDTH, SCREEN_HEIGHT, BG_DARK, BG_GRADIENT_TOP, BG_GRADIENT_BOTTOM,
+    CARD_WHITE, BLACK, RED, GOLD, GOLD_HOVER, GOLD_DIM, TEXT_WHITE, TEXT_BLACK,
+    TEXT_DIM, TEXT_DIMMER, PANEL_BG, PANEL_BORDER, PANEL_BORDER_GOLD,
     STATUS_BAR_H, CARD_WIDTH, CARD_HEIGHT, CORNER_RADIUS,
     UI_FONT_SIZE, SMALL_FONT_SIZE,
     DEFAULT_AI_DELAY, DEFAULT_PEEK_REVEAL_TIME, DEFAULT_PEEK_PHASE_SECONDS,
@@ -10,13 +12,16 @@ from config import (
     AI_DELAY_OPTIONS, AI_DELAY_LABELS, PEEK_REVEAL_OPTIONS, PEEK_REVEAL_LABELS,
     ANIMATION_OPTIONS, ANIMATION_LABELS, LAYOUT_OPTIONS, LAYOUT_LABELS,
     AI_DIFFICULTY_OPTIONS, AI_DIFFICULTY_LABELS, PEEK_PHASE_OPTIONS, PEEK_PHASE_LABELS,
-    FELT_COLORS, FELT_LABELS,
+    FELT_COLORS, FELT_LABELS, FELT_COLORS_LIGHT,
+    SWAP_GREEN, SWAP_GREEN_HOVER, PEEK_BLUE, PEEK_BLUE_HOVER,
+    DECLARE_RED, DECLARE_RED_HOVER, CANCEL_GRAY, CANCEL_GRAY_HOVER,
 )
+from ui.widgets import Button, ToggleButton
 
 
 class SettingsMenu:
-    PANEL_W = 600
-    PANEL_H = 580
+    PANEL_W = 620
+    PANEL_H = 600
     PANEL_X = (SCREEN_WIDTH - PANEL_W) // 2
     PANEL_Y = (SCREEN_HEIGHT - PANEL_H) // 2
     GEAR_X = SCREEN_WIDTH - 52
@@ -24,186 +29,207 @@ class SettingsMenu:
     GEAR_W = 40
     GEAR_H = 34
 
-    SOFT_AMBER = (220, 170, 50)
-    SOFT_AMBER_HOVER = (240, 190, 60)
-
     def __init__(self, screen):
         self.screen = screen
-        self.font = pygame.font.SysFont("arial", UI_FONT_SIZE)
-        self.small_font = pygame.font.SysFont("arial", SMALL_FONT_SIZE)
-        self.title_font = pygame.font.SysFont("arial", 28, bold=True)
-        self.section_font = pygame.font.SysFont("arial", UI_FONT_SIZE - 2, bold=True)
+        self.title_font = pygame.font.SysFont("georgia", 28, bold=True)
+        self.font = pygame.font.SysFont("segoeui", UI_FONT_SIZE)
+        self.small_font = pygame.font.SysFont("segoeui", SMALL_FONT_SIZE)
+        self.section_font = pygame.font.SysFont("segoeui", UI_FONT_SIZE - 2, bold=True)
         self._hovered = None
         self._controls = []
+        self._all_buttons = []
+        self._time = 0.0
         self._build_controls()
 
     def _build_controls(self):
         self._controls = []
-        sx = self.PANEL_X + 20
-        sy = self.PANEL_Y + 52
-        line_h = 34
-        btn_h = 28
+        self._all_buttons = []
+        sx = self.PANEL_X + 24
+        sy = self.PANEL_Y + 56
+        line_h = 36
+        btn_h = 30
 
         self._controls.append({
             'type': 'section', 'text': 'CARD LAYOUT',
             'rect': pygame.Rect(sx, sy, 200, 20)
         })
-        sy += 26
+        sy += 28
         for i, (mode, label) in enumerate(zip(LAYOUT_OPTIONS, LAYOUT_LABELS)):
-            bx = sx + i * 105
+            bx = sx + i * 110
+            btn = Button(bx + 50, sy + btn_h // 2, 100, btn_h, label, 'secondary', font=self.small_font)
             self._controls.append({
                 'type': 'layout_btn', 'value': mode, 'label': label,
-                'rect': pygame.Rect(bx, sy, 100, btn_h)
+                'rect': btn.rect, 'btn': btn
             })
-        sy += line_h + 12
+            self._all_buttons.append(btn)
+        sy += line_h + 8
 
         self._controls.append({
             'type': 'section', 'text': 'TABLE FELT',
             'rect': pygame.Rect(sx, sy, 200, 20)
         })
-        sy += 26
+        sy += 28
         for i, (key, label) in enumerate(zip(FELT_COLORS.keys(), FELT_LABELS)):
-            bx = sx + i * 105
+            bx = sx + i * 110
+            btn = Button(bx + 50, sy + btn_h // 2, 100, btn_h, label, 'secondary', font=self.small_font)
             self._controls.append({
                 'type': 'felt_btn', 'value': key, 'label': label,
-                'rect': pygame.Rect(bx, sy, 100, btn_h)
+                'rect': btn.rect, 'btn': btn
             })
-        sy += line_h + 12
+            self._all_buttons.append(btn)
+        sy += line_h + 8
 
         self._controls.append({
             'type': 'section', 'text': 'GAME SPEED',
             'rect': pygame.Rect(sx, sy, 200, 20)
         })
-        sy += 26
+        sy += 28
         self._controls.append({
             'type': 'label', 'text': 'AI Delay:',
-            'rect': pygame.Rect(sx, sy + 4, 90, 20)
+            'rect': pygame.Rect(sx, sy + 5, 90, 20)
         })
         for i, (val, lbl) in enumerate(zip(AI_DELAY_OPTIONS, AI_DELAY_LABELS)):
-            bx = sx + 95 + i * 105
+            bx = sx + 95 + i * 110
+            btn = Button(bx + 50, sy + btn_h // 2, 100, btn_h, lbl, 'secondary', font=self.small_font)
             self._controls.append({
                 'type': 'ai_delay_btn', 'value': val, 'label': lbl,
-                'rect': pygame.Rect(bx, sy, 100, btn_h)
+                'rect': btn.rect, 'btn': btn
             })
+            self._all_buttons.append(btn)
         sy += line_h
         self._controls.append({
             'type': 'label', 'text': 'Peek Reveal:',
-            'rect': pygame.Rect(sx, sy + 4, 90, 20)
+            'rect': pygame.Rect(sx, sy + 5, 90, 20)
         })
         for i, (val, lbl) in enumerate(zip(PEEK_REVEAL_OPTIONS, PEEK_REVEAL_LABELS)):
-            bx = sx + 95 + i * 105
+            bx = sx + 95 + i * 110
+            btn = Button(bx + 50, sy + btn_h // 2, 100, btn_h, lbl, 'secondary', font=self.small_font)
             self._controls.append({
                 'type': 'peek_reveal_btn', 'value': val, 'label': lbl,
-                'rect': pygame.Rect(bx, sy, 100, btn_h)
+                'rect': btn.rect, 'btn': btn
             })
+            self._all_buttons.append(btn)
         sy += line_h
         self._controls.append({
             'type': 'label', 'text': 'Animations:',
-            'rect': pygame.Rect(sx, sy + 4, 90, 20)
+            'rect': pygame.Rect(sx, sy + 5, 90, 20)
         })
         for i, (val, lbl) in enumerate(zip(ANIMATION_OPTIONS, ANIMATION_LABELS)):
-            bx = sx + 95 + i * 105
+            bx = sx + 95 + i * 110
+            btn = Button(bx + 50, sy + btn_h // 2, 100, btn_h, lbl, 'secondary', font=self.small_font)
             self._controls.append({
                 'type': 'anim_btn', 'value': val, 'label': lbl,
-                'rect': pygame.Rect(bx, sy, 100, btn_h)
+                'rect': btn.rect, 'btn': btn
             })
-        sy += line_h + 12
+            self._all_buttons.append(btn)
+        sy += line_h + 8
 
         self._controls.append({
             'type': 'section', 'text': 'AI DIFFICULTY',
             'rect': pygame.Rect(sx, sy, 200, 20)
         })
-        sy += 26
+        sy += 28
         self._controls.append({
-            'type': 'label', 'text': 'Note: difficulty affects declare threshold',
-            'rect': pygame.Rect(sx, sy + 4, 400, 20)
+            'type': 'label', 'text': 'Note: affects declare threshold',
+            'rect': pygame.Rect(sx, sy + 5, 400, 20)
         })
         sy += line_h
         for i, (val, lbl) in enumerate(zip(AI_DIFFICULTY_OPTIONS, AI_DIFFICULTY_LABELS)):
-            bx = sx + i * 105
+            bx = sx + i * 110
+            btn = Button(bx + 50, sy + btn_h // 2, 100, btn_h, lbl, 'secondary', font=self.small_font)
             self._controls.append({
                 'type': 'ai_diff_btn', 'value': val, 'label': lbl,
-                'rect': pygame.Rect(bx, sy, 100, btn_h)
+                'rect': btn.rect, 'btn': btn
             })
-        sy += line_h + 12
+            self._all_buttons.append(btn)
+        sy += line_h + 8
 
         self._controls.append({
             'type': 'section', 'text': 'DISPLAY',
             'rect': pygame.Rect(sx, sy, 200, 20)
         })
-        sy += 26
+        sy += 28
         self._controls.append({
             'type': 'label', 'text': 'Show Own Score:',
-            'rect': pygame.Rect(sx, sy + 4, 130, 20)
+            'rect': pygame.Rect(sx, sy + 5, 130, 20)
         })
         for i, (val, lbl) in enumerate(zip([True, False], ['ON', 'OFF'])):
-            bx = sx + 140 + i * 105
+            bx = sx + 140 + i * 110
+            btn = Button(bx + 50, sy + btn_h // 2, 100, btn_h, lbl, 'secondary', font=self.small_font)
             self._controls.append({
                 'type': 'score_btn', 'value': val, 'label': lbl,
-                'rect': pygame.Rect(bx, sy, 100, btn_h)
+                'rect': btn.rect, 'btn': btn
             })
+            self._all_buttons.append(btn)
         sy += line_h
         self._controls.append({
             'type': 'label', 'text': 'Known Markers:',
-            'rect': pygame.Rect(sx, sy + 4, 130, 20)
+            'rect': pygame.Rect(sx, sy + 5, 130, 20)
         })
         for i, (val, lbl) in enumerate(zip([True, False], ['ON', 'OFF'])):
-            bx = sx + 140 + i * 105
+            bx = sx + 140 + i * 110
+            btn = Button(bx + 50, sy + btn_h // 2, 100, btn_h, lbl, 'secondary', font=self.small_font)
             self._controls.append({
                 'type': 'marker_btn', 'value': val, 'label': lbl,
-                'rect': pygame.Rect(bx, sy, 100, btn_h)
+                'rect': btn.rect, 'btn': btn
             })
+            self._all_buttons.append(btn)
         sy += line_h
         self._controls.append({
             'type': 'label', 'text': 'Game Log:',
-            'rect': pygame.Rect(sx, sy + 4, 130, 20)
+            'rect': pygame.Rect(sx, sy + 5, 130, 20)
         })
         for i, (val, lbl) in enumerate(zip([True, False], ['ON', 'OFF'])):
-            bx = sx + 140 + i * 105
+            bx = sx + 140 + i * 110
+            btn = Button(bx + 50, sy + btn_h // 2, 100, btn_h, lbl, 'secondary', font=self.small_font)
             self._controls.append({
                 'type': 'log_btn', 'value': val, 'label': lbl,
-                'rect': pygame.Rect(bx, sy, 100, btn_h)
+                'rect': btn.rect, 'btn': btn
             })
-        sy += line_h + 12
+            self._all_buttons.append(btn)
+        sy += line_h + 8
 
         self._controls.append({
             'type': 'section', 'text': 'GAMEPLAY',
             'rect': pygame.Rect(sx, sy, 200, 20)
         })
-        sy += 26
+        sy += 28
         self._controls.append({
             'type': 'label', 'text': 'Confirm Declare:',
-            'rect': pygame.Rect(sx, sy + 4, 130, 20)
+            'rect': pygame.Rect(sx, sy + 5, 130, 20)
         })
         for i, (val, lbl) in enumerate(zip([True, False], ['ON', 'OFF'])):
-            bx = sx + 140 + i * 105
+            bx = sx + 140 + i * 110
+            btn = Button(bx + 50, sy + btn_h // 2, 100, btn_h, lbl, 'secondary', font=self.small_font)
             self._controls.append({
                 'type': 'confirm_btn', 'value': val, 'label': lbl,
-                'rect': pygame.Rect(bx, sy, 100, btn_h)
+                'rect': btn.rect, 'btn': btn
             })
+            self._all_buttons.append(btn)
         sy += line_h
         self._controls.append({
             'type': 'label', 'text': 'Peek Phase:',
-            'rect': pygame.Rect(sx, sy + 4, 90, 20)
+            'rect': pygame.Rect(sx, sy + 5, 90, 20)
         })
         for i, (val, lbl) in enumerate(zip(PEEK_PHASE_OPTIONS, PEEK_PHASE_LABELS)):
-            bx = sx + 95 + i * 85
+            bx = sx + 95 + i * 90
+            btn = Button(bx + 40, sy + btn_h // 2, 80, btn_h, lbl, 'secondary', font=self.small_font)
             self._controls.append({
                 'type': 'peek_phase_btn', 'value': val, 'label': lbl,
-                'rect': pygame.Rect(bx, sy, 80, btn_h)
+                'rect': btn.rect, 'btn': btn
             })
-        sy += line_h + 14
+            self._all_buttons.append(btn)
+        sy += line_h + 16
 
         done_rect = pygame.Rect(
-            self.PANEL_X + self.PANEL_W // 2 - 70,
-            sy, 140, 38
+            self.PANEL_X + self.PANEL_W // 2 - 80,
+            sy, 160, 42
         )
+        self.done_button = Button(self.PANEL_X + self.PANEL_W // 2, sy + 21, 160, 42, "Done", 'gold', font=self.font, glow=True)
         self._controls.append({
             'type': 'done_btn', 'rect': done_rect
         })
-
-    def _draw_rounded_rect(self, surface, color, rect, radius):
-        pygame.draw.rect(surface, color, rect, border_radius=radius)
+        self._all_buttons.append(self.done_button)
 
     def _hit_test(self, mouse_pos):
         self._hovered = None
@@ -216,6 +242,9 @@ class SettingsMenu:
     def handle_event(self, event, game_settings, game_manager):
         mouse_pos = pygame.mouse.get_pos()
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.done_button.contains(event.pos):
+                self.done_button.on_press()
+                return 'close'
             for ctrl in self._controls:
                 if ctrl['rect'].collidepoint(mouse_pos):
                     ctype = ctrl['type']
@@ -254,7 +283,12 @@ class SettingsMenu:
                         game_settings.confirm_declare = ctrl['value']
                     elif ctype == 'peek_phase_btn':
                         game_settings.peek_phase_seconds = ctrl['value']
+                    if 'btn' in ctrl:
+                        ctrl['btn'].on_press()
                     return 'updated'
+        if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            for btn in self._all_buttons:
+                btn.on_release()
         return None
 
     def _get_human_index(self, gm):
@@ -263,54 +297,61 @@ class SettingsMenu:
                 return i
         return None
 
-    def _draw_section_icon(self, surface, icon_type, cx, cy, color):
+    def _draw_section_icon(self, icon_type, cx, cy, color):
         if icon_type == 'cards':
-            r = 3
-            gaps = [1, 2, 3]
-            for i, g in enumerate(gaps):
-                x = cx - 8 + i * (r * 2 + 2)
-                pygame.draw.rect(surface, color, (x, cy - r, r * 2, r * 2), border_radius=1)
+            for i in range(3):
+                x = cx - 8 + i * 7
+                pygame.draw.rect(self.screen, color, (x, cy - 4, 5, 8), border_radius=1)
         elif icon_type == 'speed':
-            pygame.draw.circle(surface, color, (cx, cy), 7, 1)
-            pygame.draw.line(surface, color, (cx, cy), (cx + 5, cy - 5), 2)
-            pygame.draw.circle(surface, color, (cx, cy), 2)
+            pygame.draw.circle(self.screen, color, (cx, cy), 7, 1)
+            pygame.draw.line(self.screen, color, (cx, cy), (cx + 5, cy - 5), 2)
+            pygame.draw.circle(self.screen, color, (cx, cy), 2)
         elif icon_type == 'target':
-            pygame.draw.circle(surface, color, (cx, cy), 8, 1)
-            pygame.draw.circle(surface, color, (cx, cy), 5, 1)
-            pygame.draw.circle(surface, color, (cx, cy), 2)
+            pygame.draw.circle(self.screen, color, (cx, cy), 8, 1)
+            pygame.draw.circle(self.screen, color, (cx, cy), 5, 1)
+            pygame.draw.circle(self.screen, color, (cx, cy), 2)
         elif icon_type == 'eye':
-            pygame.draw.ellipse(surface, color, (cx - 9, cy - 5, 18, 10), 1)
-            pygame.draw.circle(surface, color, (cx, cy), 2)
+            pygame.draw.ellipse(self.screen, color, (cx - 9, cy - 5, 18, 10), 1)
+            pygame.draw.circle(self.screen, color, (cx, cy), 2)
         elif icon_type == 'play':
             pts = [(cx - 5, cy - 7), (cx - 5, cy + 7), (cx + 7, cy)]
-            pygame.draw.polygon(surface, color, pts)
-            pygame.draw.polygon(surface, color, pts, 1)
+            pygame.draw.polygon(self.screen, color, pts)
         elif icon_type == 'felt':
-            pygame.draw.ellipse(surface, color, (cx - 9, cy - 5, 18, 10), 1)
-            pygame.draw.ellipse(surface, color, (cx - 5, cy - 3, 10, 6), 1)
+            pygame.draw.ellipse(self.screen, color, (cx - 9, cy - 5, 18, 10), 1)
+            pygame.draw.ellipse(self.screen, color, (cx - 5, cy - 3, 10, 6), 1)
 
     def draw(self, game_settings, game_manager, mouse_pos):
+        self._time += 0.016
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 160))
+        overlay.fill((0, 0, 0, 170))
         self.screen.blit(overlay, (0, 0))
 
         panel_rect = pygame.Rect(self.PANEL_X, self.PANEL_Y, self.PANEL_W, self.PANEL_H)
 
-        panel_shadow = pygame.Surface((self.PANEL_W + 8, self.PANEL_H + 8), pygame.SRCALPHA)
-        pygame.draw.rect(panel_shadow, (0, 0, 0, 100), (4, 6, self.PANEL_W, self.PANEL_H), border_radius=12)
-        self.screen.blit(panel_shadow, (self.PANEL_X - 4, self.PANEL_Y + 4))
+        panel_shadow = pygame.Surface((self.PANEL_W + 12, self.PANEL_H + 12), pygame.SRCALPHA)
+        pygame.draw.rect(panel_shadow, (0, 0, 0, 120), (6, 8, self.PANEL_W, self.PANEL_H), border_radius=14)
+        self.screen.blit(panel_shadow, (self.PANEL_X - 6, self.PANEL_Y + 6))
 
         panel_surf = pygame.Surface((self.PANEL_W, self.PANEL_H), pygame.SRCALPHA)
-        panel_surf.fill((*PANEL_BG, 248))
+        for y in range(self.PANEL_H):
+            t = y / self.PANEL_H
+            r = int(BG_GRADIENT_TOP[0] + (BG_GRADIENT_BOTTOM[0] - BG_GRADIENT_TOP[0]) * t)
+            g = int(BG_GRADIENT_TOP[1] + (BG_GRADIENT_BOTTOM[1] - BG_GRADIENT_TOP[1]) * t)
+            b = int(BG_GRADIENT_TOP[2] + (BG_GRADIENT_BOTTOM[2] - BG_GRADIENT_TOP[2]) * t)
+            for x in range(self.PANEL_W):
+                panel_surf.set_at((x, y), (r, g, b, 248))
         self.screen.blit(panel_surf, panel_rect.topleft)
-        pygame.draw.rect(self.screen, GOLD, panel_rect, 2, border_radius=10)
+        pygame.draw.rect(self.screen, (*GOLD, 150), panel_rect, 2, border_radius=12)
 
-        title_surf = self.title_font.render("Settings", True, GOLD)
-        shadow_surf = self.title_font.render("Settings", True, (0, 0, 0))
-        title_rect = title_surf.get_rect(center=(self.PANEL_X + self.PANEL_W // 2 + 1, self.PANEL_Y + 33))
+        title_surf = self.title_font.render("SETTINGS", True, GOLD)
+        shadow_surf = self.title_font.render("SETTINGS", True, (40, 25, 5))
+        title_rect = title_surf.get_rect(center=(self.PANEL_X + self.PANEL_W // 2 + 2, self.PANEL_Y + 34))
         self.screen.blit(shadow_surf, title_rect)
         title_rect2 = title_surf.get_rect(center=(self.PANEL_X + self.PANEL_W // 2, self.PANEL_Y + 32))
         self.screen.blit(title_surf, title_rect2)
+        pygame.draw.line(self.screen, (*GOLD_DIM, 100),
+                         (self.PANEL_X + 30, self.PANEL_Y + 48),
+                         (self.PANEL_X + self.PANEL_W - 30, self.PANEL_Y + 48), 1)
 
         SECTION_ICONS = {
             'CARD LAYOUT': 'cards',
@@ -327,11 +368,11 @@ class SettingsMenu:
 
             if ctype == 'section':
                 icon_type = SECTION_ICONS.get(ctrl['text'], '')
-                self._draw_section_icon(self.screen, icon_type, rect.x + 10, rect.y + 9, (180, 160, 60))
+                self._draw_section_icon(icon_type, rect.x + 10, rect.y + 9, GOLD_DIM)
                 text_surf = self.section_font.render(ctrl['text'], True, GOLD)
-                self.screen.blit(text_surf, (rect.x + 26, rect.y))
-                pygame.draw.line(self.screen, PANEL_BORDER, (rect.x, rect.y + 18),
-                                (self.PANEL_X + self.PANEL_W - 20, rect.y + 18), 1)
+                self.screen.blit(text_surf, (rect.x + 28, rect.y))
+                pygame.draw.line(self.screen, (*PANEL_BORDER, 120), (rect.x, rect.y + 20),
+                                (self.PANEL_X + self.PANEL_W - 24, rect.y + 20), 1)
 
             elif ctype == 'label':
                 lbl_surf = self.small_font.render(ctrl['text'], True, TEXT_DIM)
@@ -363,63 +404,30 @@ class SettingsMenu:
                 elif ctype == 'peek_phase_btn':
                     active = abs(game_settings.peek_phase_seconds - ctrl['value']) < 0.05
 
-                hovered = (self._hovered is ctrl)
-                active_color = self.SOFT_AMBER if active else ((120, 120, 120) if hovered else (70, 70, 70))
-                txt_color = BG_DARK if active else (TEXT_WHITE if hovered else TEXT_DIM)
-
-                shadow_s = pygame.Surface((rect.width + 3, rect.height + 3), pygame.SRCALPHA)
-                pygame.draw.rect(shadow_s, (0, 0, 0, 50), (1, 2, rect.width, rect.height), border_radius=5)
-                self.screen.blit(shadow_s, (rect.x - 1, rect.y + 2))
-
-                self._draw_rounded_rect(self.screen, active_color, rect, 5)
-
-                c_r = max(active_color[0] - 35, 0)
-                c_g = max(active_color[1] - 35, 0)
-                c_b = max(active_color[2] - 35, 0)
-                pygame.draw.line(self.screen, (c_r, c_g, c_b),
-                                (rect.left + 2, rect.bottom - 2), (rect.right - 2, rect.bottom - 2), 2)
-                pygame.draw.line(self.screen, (c_r, c_g, c_b),
-                                (rect.right - 2, rect.top + 2), (rect.right - 2, rect.bottom - 2), 2)
-                l_r = min(active_color[0] + 45, 255)
-                l_g = min(active_color[1] + 45, 255)
-                l_b = min(active_color[2] + 45, 255)
-                pygame.draw.line(self.screen, (l_r, l_g, l_b),
-                                (rect.left + 2, rect.top + 2), (rect.right - 2, rect.top + 2), 2)
-                pygame.draw.line(self.screen, (l_r, l_g, l_b),
-                                (rect.left + 2, rect.top + 2), (rect.left + 2, rect.bottom - 2), 2)
-
-                lbl_surf = self.small_font.render(ctrl['label'], True, txt_color)
-                lbl_rect = lbl_surf.get_rect(center=rect.center)
-                self.screen.blit(lbl_surf, lbl_rect)
+                btn = ctrl.get('btn')
+                if btn:
+                    if active:
+                        btn.variant = 'gold'
+                        btn.base_color = GOLD
+                        btn.hover_color = GOLD_HOVER
+                        btn.text_color = BG_DARK
+                    else:
+                        btn.variant = 'secondary'
+                        btn.base_color = (55, 55, 60)
+                        btn.hover_color = (75, 75, 80)
+                        btn.text_color = TEXT_WHITE
+                    btn.update(0.016, mouse_pos)
+                    btn.draw(self.screen)
 
                 if ctype == 'felt_btn':
                     swatch_color = FELT_COLORS.get(ctrl['value'], (50, 50, 50))
-                    swatch_rect = pygame.Rect(rect.right + 6, rect.centery - 6, 12, 12)
-                    pygame.draw.rect(self.screen, swatch_color, swatch_rect, border_radius=3)
-                    pygame.draw.rect(self.screen, (80, 80, 80), swatch_rect, 1, border_radius=3)
+                    swatch_rect = pygame.Rect(rect.right + 8, rect.centery - 7, 14, 14)
+                    pygame.draw.rect(self.screen, swatch_color, swatch_rect, border_radius=4)
+                    pygame.draw.rect(self.screen, (*GOLD_DIM, 150), swatch_rect, 1, border_radius=4)
 
             elif ctype == 'done_btn':
-                hovered = rect.collidepoint(mouse_pos)
-                bg_color = (20, 20, 20) if hovered else (15, 15, 15)
-
-                shadow_s = pygame.Surface((rect.width + 4, rect.height + 4), pygame.SRCALPHA)
-                pygame.draw.rect(shadow_s, (0, 0, 0, 60), (2, 3, rect.width, rect.height), border_radius=8)
-                self.screen.blit(shadow_s, (rect.x - 2, rect.y + 3))
-
-                self._draw_rounded_rect(self.screen, bg_color, rect, 8)
-                pygame.draw.rect(self.screen, GOLD, rect, 1, border_radius=8)
-
-                l_r = min(GOLD[0] + 30, 255)
-                l_g = min(GOLD[1] + 30, 255)
-                l_b = min(GOLD[2] + 30, 255)
-                pygame.draw.line(self.screen, (l_r, l_g, l_b),
-                                (rect.left + 3, rect.top + 3), (rect.right - 3, rect.top + 3), 1)
-                pygame.draw.line(self.screen, (l_r, l_g, l_b),
-                                (rect.left + 3, rect.top + 3), (rect.left + 3, rect.bottom - 3), 1)
-
-                done_surf = self.font.render("Done", True, GOLD)
-                done_rect = done_surf.get_rect(center=rect.center)
-                self.screen.blit(done_surf, done_rect)
+                self.done_button.update(0.016, mouse_pos)
+                self.done_button.draw(self.screen)
 
         self._hit_test(mouse_pos)
 
@@ -428,14 +436,18 @@ class SettingsMenu:
 
     def draw_gear_icon(self, mouse_pos, settings_open=False):
         rect = self.get_gear_rect()
+        cx, cy = rect.centerx, rect.centry
         hovered = rect.collidepoint(mouse_pos) and not settings_open
-        bg_col = (35, 35, 28) if hovered else (25, 25, 18)
-        border_col = GOLD
-        gear_col = GOLD
-        bg_rect = pygame.Rect(rect.x - 4, rect.y - 4, rect.width + 8, rect.height + 8)
-        self._draw_rounded_rect(self.screen, bg_col, bg_rect, 6)
-        pygame.draw.rect(self.screen, border_col, bg_rect, 2, border_radius=6)
-        gear_surf = self.font.render('\u2699', True, gear_col)
-        gear_rect = gear_surf.get_rect(center=rect.center)
-        self.screen.blit(gear_surf, gear_rect)
+        color = GOLD if hovered or settings_open else TEXT_DIM
+        radius = 10
+        teeth = 8
+        pts = []
+        for i in range(teeth * 2):
+            angle = math.pi * 2 * i / (teeth * 2) - math.pi / 2
+            r = radius + 5 if i % 2 == 0 else radius
+            pts.append((cx + r * math.cos(angle), cy + r * math.sin(angle)))
+        if len(pts) > 2:
+            pygame.draw.polygon(self.screen, color, pts)
+        pygame.draw.circle(self.screen, BG_DARK, (cx, cy), 4)
+        pygame.draw.circle(self.screen, color, (cx, cy), 4, 1)
         return rect
