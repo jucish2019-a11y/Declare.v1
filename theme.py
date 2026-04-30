@@ -190,3 +190,16 @@ def apply_motion_scale(scale: float):
 def apply_particles(enabled: bool):
     global _active
     _active = replace(_active, particles_enabled=enabled)
+
+
+def apply_felt_style(felt_key: str):
+    global _active
+    try:
+        from config import FELT_COLORS, FELT_COLORS_LIGHT
+        deep = FELT_COLORS.get(felt_key, FELT_COLORS['forest'])
+        mid = tuple(int(v * 1.15) for v in deep)
+        mid = tuple(min(255, v) for v in mid)
+        rim = tuple(int(v * 0.35) for v in deep)
+        _active = replace(_active, felt_deep=deep, felt_mid=mid, felt_rim=rim)
+    except Exception:
+        pass

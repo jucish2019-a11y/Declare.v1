@@ -913,7 +913,7 @@ class GameOverScreen:
         if result and result.get("winner"):
             winner_seat = result["winner"].seat_index
 
-        hand_size = getattr(game_manager, 'hand_size', 4)
+        hand_size = game_manager.settings.hand_size
         section_width = SCREEN_WIDTH // num_players
         for i, player in enumerate(game_manager.players):
             px = section_width * i + section_width // 2

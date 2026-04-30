@@ -155,6 +155,7 @@ class SettingsMenu:
             gs.wrong_drop_penalty = payload
         elif action == "felt":
             gs.felt_style = payload
+            theme_mod.apply_felt_style(payload)
 
         elif action == "theme":
             if prof:

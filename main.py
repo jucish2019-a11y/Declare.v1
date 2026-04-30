@@ -1011,24 +1011,30 @@ def main():
 
                             elif awaiting == 'self_pair_second':
                                 if human_idx is not None and selected_slot is not None:
-                                    rects = renderer.get_card_rects(human_idx, game_manager)
-                                    for slot_idx, rect in enumerate(rects):
-                                        if rect.collidepoint(mouse_pos) and slot_idx != selected_slot and game_manager.players[human_idx].hand[slot_idx] is not None:
-                                            if slot_idx in game_manager.players[human_idx].known_cards:
-                                                card_a = game_manager.players[human_idx].known_cards.get(selected_slot)
-                                                card_b = game_manager.players[human_idx].known_cards.get(slot_idx)
-                                                if card_a and card_b and card_a.rank == card_b.rank:
-                                                    pos_a = renderer.get_card_center(human_idx, selected_slot, game_manager)
-                                                    pos_b = renderer.get_card_center(human_idx, slot_idx, game_manager)
-                                                    renderer.push_pair_fly_animation(game_manager, pos_a, game_manager.players[human_idx].hand[selected_slot], pos_b, game_manager.players[human_idx].hand[slot_idx])
-                                                    result = game_manager.execute_self_pair_action(selected_slot, slot_idx)
-                                                    if not result.get('success', True) is False:
-                                                        game_manager.check_game_over()
-                                                    awaiting = None
-                                                    selected_slot = None
-                                                    status_message = ""
-                                                    turn_end_timer = ANIM_PAIR_FLY_DURATION + 0.1
-                                            break
+                                    if selected_slot not in game_manager.players[human_idx].known_cards:
+                                        status_message = "Pick a card you've seen first"
+                                        awaiting = None
+                                        selected_slot = None
+                                        turn_end_timer = 0
+                                    else:
+                                        rects = renderer.get_card_rects(human_idx, game_manager)
+                                        for slot_idx, rect in enumerate(rects):
+                                            if rect.collidepoint(mouse_pos) and slot_idx != selected_slot and game_manager.players[human_idx].hand[slot_idx] is not None:
+                                                if slot_idx in game_manager.players[human_idx].known_cards:
+                                                    card_a = game_manager.players[human_idx].known_cards.get(selected_slot)
+                                                    card_b = game_manager.players[human_idx].known_cards.get(slot_idx)
+                                                    if card_a and card_b and card_a.rank == card_b.rank:
+                                                        pos_a = renderer.get_card_center(human_idx, selected_slot, game_manager)
+                                                        pos_b = renderer.get_card_center(human_idx, slot_idx, game_manager)
+                                                        renderer.push_pair_fly_animation(game_manager, pos_a, game_manager.players[human_idx].hand[selected_slot], pos_b, game_manager.players[human_idx].hand[slot_idx])
+                                                        result = game_manager.execute_self_pair_action(selected_slot, slot_idx)
+                                                        if not result.get('success', True) is False:
+                                                            game_manager.check_game_over()
+                                                        awaiting = None
+                                                        selected_slot = None
+                                                        status_message = ""
+                                                        turn_end_timer = ANIM_PAIR_FLY_DURATION + 0.1
+                                                break
 
                             elif awaiting == 'react_drop_self':
                                 if human_idx is not None and game_manager.state == GameState.REACTION_WINDOW:
@@ -1141,13 +1147,17 @@ def main():
                 if renderer.is_animating():
                     pass
                 else:
+                    all_responded = True
                     for ai_p in game_manager.players:
                         if ai_p.is_human:
                             continue
+                        if game_manager.reaction_responded:
+                            break
                         ai_decider = AIDecider(ai_p, {'players': game_manager.players})
                         if game_manager.reaction_rank:
                             reaction = ai_decider.should_react_to_discard(game_manager.reaction_rank)
                             if reaction:
+                                all_responded = False
                                 if reaction['type'] == 'react_drop_self':
                                     result = game_manager.attempt_reactive_drop_self(ai_p.seat_index, reaction['slot'])
                                     if result.get('success'):
@@ -1165,8 +1175,10 @@ def main():
                                         opp_pos = renderer.get_card_center(reaction['opponent_index'], reaction['opponent_slot'], game_manager)
                                         renderer.push_ai_pair_animation(game_manager, opp_pos)
                                         game_manager.check_game_over()
-                        break
-                    game_manager.end_reaction_window()
+                    if not game_manager.reaction_responded and not renderer.is_animating():
+                        game_manager.end_reaction_window()
+                    elif game_manager.reaction_responded and not renderer.is_animating():
+                        game_manager.end_reaction_window()
 
             elif not cp.is_human and turn_end_timer <= 0 and game_manager.state != GameState.REACTION_WINDOW:
                 if renderer.is_animating():
