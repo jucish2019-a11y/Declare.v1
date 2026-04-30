@@ -1,3 +1,4 @@
+from __future__ import annotations
 import random
 from config import HAND_SIZE
 from game.card import Card
@@ -8,6 +9,7 @@ class Player:
         self.name = name
         self.is_human = is_human
         self.seat_index = seat_index
+        self.hand_size = hand_size
         self.hand: list = [None] * hand_size
         self.known_cards: dict = {}
         self.known_opponent_cards: dict = {}
@@ -38,6 +40,21 @@ class Player:
         self.hand[slot] = None
         self.known_cards.pop(slot, None)
         return card
+
+    def mark_received_card(self, slot: int, duration: float, current_time: float):
+        self.received_card_slot = slot
+        self.received_card_until = current_time + duration
+
+    def clear_received_card(self):
+        self.received_card_slot = None
+        self.received_card_until = 0.0
+
+    def resize_hand(self, new_size: int):
+        old_hand = self.hand[:]
+        self.hand = [None] * new_size
+        for i in range(min(len(old_hand), new_size)):
+            self.hand[i] = old_hand[i]
+        self.hand_size = new_size
 
     def swap_cards(self, my_slot: int, other_player, their_slot: int):
         my_card = self.hand[my_slot]

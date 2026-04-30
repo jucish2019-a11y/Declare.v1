@@ -1,4 +1,6 @@
-from config import POWER_LABELS
+from __future__ import annotations
+import pygame
+from config import HAND_SIZE, POWER_LABELS, SWAP_REVEAL_SECONDS
 from game.card import Card
 from game.player import Player
 
@@ -254,6 +256,7 @@ def resolve_power(card: Card, current_player: Player, all_players: list, target_
         target_player.known_cards.pop(their_slot, None)
         current_player.known_opponent_cards.pop((target_player_index, their_slot), None)
         target_player.known_opponent_cards.pop((current_player.seat_index, my_slot), None)
+        target_player.mark_received_card(their_slot, SWAP_REVEAL_SECONDS, pygame.time.get_ticks() / 1000.0)
         return {
             'action': 'unseen_swap',
             'my_slot': my_slot,
@@ -272,6 +275,7 @@ def resolve_power(card: Card, current_player: Player, all_players: list, target_
         current_player.known_cards[my_slot] = their_card_before
         current_player.known_cards.pop(their_slot, None)
         current_player.known_opponent_cards[(target_player_index, their_slot)] = my_card_before
+        target_player.mark_received_card(their_slot, SWAP_REVEAL_SECONDS, pygame.time.get_ticks() / 1000.0)
         return {
             'action': 'seen_swap',
             'my_slot': my_slot,

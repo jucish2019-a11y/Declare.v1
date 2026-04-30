@@ -1,3 +1,4 @@
+from __future__ import annotations
 import random
 from config import CARD_VALUES, POWER_CARDS, POWER_LABELS
 from game.card import Card
@@ -114,6 +115,18 @@ class AIDecider:
                     }
 
         return None
+
+    def should_react(self, reaction_rank: str, difficulty: str) -> bool:
+        if reaction_rank not in self.player.known_cards.values():
+            return False
+        react_chance = {'easy': 0.5, 'medium': 0.8, 'normal': 0.8, 'hard': 1.0}
+        return random.random() < react_chance.get(difficulty, 0.8)
+
+    def choose_reaction_slot(self, reaction_rank: str) -> int | None:
+        matches = [s for s in self.player.get_active_slots() if s in self.player.known_cards and self.player.known_cards[s].rank == reaction_rank]
+        if not matches:
+            return None
+        return max(matches, key=lambda s: self.player.known_cards[s].value)
 
     def should_shuffle(self) -> bool:
         known_by_others = 0

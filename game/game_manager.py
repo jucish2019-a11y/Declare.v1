@@ -1,6 +1,11 @@
+from __future__ import annotations
 from enum import Enum
+from typing import Callable
 
-from config import PEEK_REVEAL_SECONDS, POWER_LABELS, DEFAULT_REACTION_WINDOW_SECONDS
+from config import (
+    HAND_SIZE, MAX_PAIR_STACK, PEEK_REVEAL_SECONDS, POWER_LABELS,
+    DEFAULT_REACTION_WINDOW_SECONDS, SWAP_REVEAL_SECONDS,
+)
 from game.card import Card, Deck
 from game.player import Player, HumanPlayer, AIPlayer
 from game.rules import (
@@ -53,12 +58,20 @@ class GameManager:
         self.peek_timer: float = 0
         self.peek_reveal: dict | None = None
         self.declaration_result: dict | None = None
+
         self.reaction_rank: str | None = None
         self.reaction_source_player: int | None = None
         self.reaction_timer: float = 0
         self.reaction_responded: bool = False
         self.reaction_card_discarded: Card | None = None
         self.self_pair_pending: bool = False
+
+        self.reaction_pending: bool = False
+        self.reaction_resolved: bool = False
+        self.reaction_result_callback: Callable | None = None
+
+        self._last_action_rank: str | None = None
+        self._last_action_type: str | None = None
 
     def setup_game(self):
         self.deck = Deck()
@@ -67,6 +80,7 @@ class GameManager:
         hand_size = self.settings.hand_size
         for player in self.players:
             player.hand = [None] * hand_size
+            player.hand_size = hand_size
             player.known_cards = {}
             player.known_opponent_cards = {}
             player.is_declaring = False
@@ -149,15 +163,23 @@ class GameManager:
             elif power == 'skip':
                 self.state = GameState.TURN_END
             elif power in ('unseen_swap', 'seen_swap'):
+                if power == 'seen_swap' and result.get('card_received'):
+                    slot = result.get('their_slot')
+                    target_idx = result.get('target_player')
+                    target_player = next((p for p in self.players if p.seat_index == target_idx), None)
+                    if target_player and slot is not None:
+                        target_player.mark_received_card(slot, SWAP_REVEAL_SECONDS, pygame.time.get_ticks() / 1000.0)
                 self.state = GameState.DECIDE
             else:
                 self.state = GameState.DECIDE
         elif action in ("swap", "discard", "pair_own", "pair_opponent"):
+            self._last_action_type = action
+            self._last_action_rank = self.drawn_card.rank if self.drawn_card else None
             self.state = GameState.DECIDE
         elif action == "shuffle":
             pass
 
-        log_entry = self._format_action_log(action, details, result)
+        log_entry = self._format_log(action, details, result)
         self.game_log.append(log_entry)
         return result
 
@@ -176,7 +198,7 @@ class GameManager:
             return result
         return result
 
-    def start_reaction_window(self, card_rank: str, source_player_index: int, discarded_card: Card = None) -> bool:
+    def start_reaction_window(self, card_rank: str, source_player_index: int, discarded_card: Card = None, result_callback: Callable = None) -> bool:
         has_reactor = False
         for p in self.players:
             if p.seat_index == source_player_index:
@@ -203,6 +225,9 @@ class GameManager:
         self.reaction_timer = self.settings.reaction_window_seconds if hasattr(self.settings, 'reaction_window_seconds') else DEFAULT_REACTION_WINDOW_SECONDS
         self.reaction_responded = False
         self.reaction_card_discarded = discarded_card
+        self.reaction_pending = True
+        self.reaction_resolved = False
+        self.reaction_result_callback = result_callback
         self.state = GameState.REACTION_WINDOW
         return True
 
@@ -255,12 +280,26 @@ class GameManager:
         self.reaction_timer = 0
         self.reaction_responded = False
         self.reaction_card_discarded = None
+        self.reaction_pending = False
+        self.reaction_resolved = True
+        if self.reaction_result_callback:
+            cb = self.reaction_result_callback
+            self.reaction_result_callback = None
+            cb()
         self.state = GameState.DECIDE
 
     def shuffle_player_hand(self, player_index: int):
         player = self.players[player_index]
         player.shuffle_hand(self.players)
         self.game_log.append(f"{'You' if player.is_human else player.name} shuffled their cards")
+
+    def _check_reaction_trigger(self, player_idx: int, action_type: str, card_rank: str):
+        if action_type in ('discard', 'pair_own', 'pair_opponent') and card_rank:
+            self.start_reaction_window(card_rank, player_idx, discarded_card=self.drawn_card)
+
+    def _log_action(self, player_idx: int, message: str, is_game_event: bool = False):
+        prefix = "[EVENT] " if is_game_event else ""
+        self.game_log.append(f"{prefix}{message}")
 
     def _format_log(self, action: str, details: dict, result: dict) -> str:
         player = self.current_player()
@@ -314,6 +353,10 @@ class GameManager:
 
     def end_turn(self):
         self.state = GameState.TURN_END
+        if self._last_action_rank:
+            self._check_reaction_trigger(self.current_player_index, self._last_action_type, self._last_action_rank)
+        self._last_action_rank = None
+        self._last_action_type = None
         self.next_turn()
 
     def resolve_declaration(self) -> dict:
@@ -359,8 +402,7 @@ class GameManager:
         pass
 
     def get_game_state_info(self) -> dict:
-        from game.rules import get_valid_actions as _get_valid_actions
-        valid = _get_valid_actions(self.current_player(), self.drawn_card, self.has_drawn_this_turn)
+        valid = get_valid_actions(self.current_player(), self.drawn_card, self.has_drawn_this_turn)
         return {
             "state": self.state,
             "current_player": self.current_player(),
@@ -370,3 +412,9 @@ class GameManager:
             "valid_actions": valid,
             "game_log": self.game_log[-10:],
         }
+
+
+try:
+    import pygame
+except ImportError:
+    pygame = None

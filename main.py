@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pygame
 from config import (
     SCREEN_WIDTH, SCREEN_HEIGHT, FPS,
-    BG_DARK, CARD_WHITE, BLACK, RED, GOLD, TEXT_WHITE, TEXT_BLACK,
+    BG_GREEN, BG_DARK, CARD_WHITE, BLACK, RED, GOLD, TEXT_WHITE, TEXT_BLACK,
     TEXT_DIM, HIGHLIGHT, DIM, PANEL_BG, CARD_BACK_BLUE,
     DECLARE_RED, DECLARE_RED_HOVER, CANCEL_GRAY, CANCEL_GRAY_HOVER,
     PEEK_BLUE, PEEK_BLUE_HOVER, SWAP_GREEN, SWAP_GREEN_HOVER,
@@ -14,7 +14,7 @@ from config import (
     SHUFFLE_COLOR, SHUFFLE_HOVER, SELF_PAIR_COLOR, SELF_PAIR_HOVER,
     DROP_MATCH_COLOR, DROP_MATCH_HOVER,
     STATUS_BAR_H, ACTION_BAR_Y, ACTION_BAR_H,
-    CARD_WIDTH, CARD_HEIGHT, CORNER_RADIUS, CARD_SPREAD,
+    CARD_WIDTH, CARD_HEIGHT, CORNER_RADIUS, CARD_SPREAD, HAND_SIZE,
     DECK_CENTER, DRAWN_CARD_POS, DISCARD_POS,
     PLAYER_BOTTOM, PLAYER_TOP, PLAYER_LEFT, PLAYER_RIGHT,
     LOG_PANEL_X, LOG_PANEL_Y, LOG_PANEL_W, LOG_PANEL_H,
@@ -33,6 +33,20 @@ from ui.renderer import Renderer, _get_seat_position, _player_area_bounds
 from ui.screens import MenuScreen, SetupScreen, PeekScreen, GameOverScreen
 from ui.settings import SettingsMenu
 
+import theme
+import audio
+import profile as profile_mod
+from toasts import ToastManager
+from particles import ParticleSystem
+from pause import PauseOverlay
+from feel import CameraShake, TimeWarp, EdgeFlash, Vignette, LampGlow
+from tutorial import TutorialDirector, FirstLaunchSplash
+from hints import HintEngine
+from captions import CaptionStream
+from profile_screen import ProfileScreen, HowToPlayScreen
+from access_panel import AccessibilityPanel
+import daily
+
 
 def _build_action_buttons(gm, ui_font, game_settings=None):
     buttons = {}
@@ -42,6 +56,7 @@ def _build_action_buttons(gm, ui_font, game_settings=None):
         return buttons
     btn_y = ACTION_BAR_Y + ACTION_BAR_H // 2
     btn_h = 44
+    spacing = 8
     if gm.state == GameState.TURN_START:
         x = SCREEN_WIDTH // 2 - 120
         if 'declare' in valid:
@@ -55,7 +70,6 @@ def _build_action_buttons(gm, ui_font, game_settings=None):
             buttons['draw'] = {'rect': rect, 'text': 'Draw', 'color': SWAP_GREEN, 'hover_color': SWAP_GREEN_HOVER, 'font': ui_font}
     elif gm.state == GameState.DECIDE:
         x = SCREEN_WIDTH // 2 - 400
-        spacing = 8
 
         if game_settings and game_settings.self_pair_enabled:
             pairs = can_self_pair(cp)
@@ -185,11 +199,107 @@ def _clamp_to_bounds(cx, cy, bounds):
     return (cx, cy)
 
 
+class _ScaledDisplay:
+    def __init__(self):
+        info = pygame.display.Info()
+        max_w = max(800, info.current_w - 80)
+        max_h = max(600, info.current_h - 160)
+        scale = min(max_w / SCREEN_WIDTH, max_h / SCREEN_HEIGHT, 1.0)
+        win_w = max(640, int(SCREEN_WIDTH * scale))
+        win_h = max(360, int(SCREEN_HEIGHT * scale))
+        self.window = pygame.display.set_mode((win_w, win_h), pygame.RESIZABLE)
+        self.logical = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT)).convert()
+        self.shake_offset = (0, 0)
+
+    def to_logical(self, pos):
+        win_w, win_h = self.window.get_size()
+        if win_w <= 0 or win_h <= 0:
+            return pos
+        return (
+            int(pos[0] * SCREEN_WIDTH / win_w),
+            int(pos[1] * SCREEN_HEIGHT / win_h),
+        )
+
+    def set_shake(self, offset):
+        self.shake_offset = offset
+
+    def present(self):
+        win_size = self.window.get_size()
+        ox, oy = self.shake_offset
+        if ox or oy:
+            shaken = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            shaken.fill((0, 0, 0))
+            shaken.blit(self.logical, (ox, oy))
+            source = shaken
+        else:
+            source = self.logical
+
+        if win_size == (SCREEN_WIDTH, SCREEN_HEIGHT):
+            self.window.blit(source, (0, 0))
+        else:
+            scaled = pygame.transform.smoothscale(source, win_size)
+            self.window.blit(scaled, (0, 0))
+        pygame.display.flip()
+
+
+def _translate_mouse_event(event, display):
+    if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION):
+        new_pos = display.to_logical(event.pos)
+        attrs = dict(event.__dict__)
+        attrs['pos'] = new_pos
+        if event.type == pygame.MOUSEMOTION and 'rel' in attrs:
+            win_w, win_h = display.window.get_size()
+            if win_w > 0 and win_h > 0:
+                attrs['rel'] = (
+                    int(attrs['rel'][0] * SCREEN_WIDTH / win_w),
+                    int(attrs['rel'][1] * SCREEN_HEIGHT / win_h),
+                )
+        return pygame.event.Event(event.type, attrs)
+    return event
+
+
 def main():
+    os.environ.setdefault("SDL_VIDEO_CENTERED", "1")
+    os.environ.setdefault("SDL_HINT_WINDOWS_DPI_AWARENESS", "permonitorv2")
     pygame.init()
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    audio.init()
+
+    prof = profile_mod.load()
+    theme.set_active(prof.settings.theme)
+    theme.apply_text_scale(prof.settings.text_scale)
+    theme.apply_motion_scale(prof.settings.motion_scale)
+    theme.apply_particles(prof.settings.particles_enabled)
+    audio.set_volume("sfx", prof.settings.sfx_volume)
+    audio.set_volume("music", prof.settings.music_volume)
+    audio.set_volume("voice", prof.settings.voice_volume)
+
+    display = _ScaledDisplay()
+    screen = display.logical
     pygame.display.set_caption("Declare")
+
+    _orig_get_pos = pygame.mouse.get_pos
+    pygame.mouse.get_pos = lambda: display.to_logical(_orig_get_pos())
+
     clock = pygame.time.Clock()
+    toasts = ToastManager()
+    particles = ParticleSystem()
+    pause = PauseOverlay()
+    paused = False
+    cam = CameraShake()
+    timewarp = TimeWarp()
+    edge_flash = EdgeFlash()
+    vignette = Vignette()
+    lamp = LampGlow()
+    tutorial = TutorialDirector()
+    first_launch = FirstLaunchSplash()
+    if not prof.tutorial_complete:
+        first_launch.show()
+    captions = CaptionStream()
+    profile_screen = ProfileScreen(screen)
+    how_to_screen = HowToPlayScreen(screen)
+    access_panel = AccessibilityPanel()
+    last_human_action = {}
+    declare_hold_until = 0.0
 
     ui_font = pygame.font.SysFont("arial", UI_FONT_SIZE)
     small_font = pygame.font.SysFont("arial", SMALL_FONT_SIZE)
@@ -199,13 +309,23 @@ def main():
     game_over_result = None
     settings_open = False
     game_settings = GameSettings()
+    game_settings.apply_persistent(prof.settings)
+    hint_engine = HintEngine(game_settings)
+
+    game_meta = {}
+    game_start_time = 0.0
+    last_log_index = 0
+    prev_screen = "menu"
+    achievement_queue = []
 
     renderer = Renderer(screen)
+    renderer.set_game_settings(game_settings)
     menu_screen = MenuScreen(screen)
-    setup_screen = SetupScreen(screen, game_settings)
+    setup_screen = SetupScreen(screen)
     peek_screen = PeekScreen(screen, game_settings.hand_size, game_settings.peek_count, game_settings.peek_phase_seconds)
     game_over_screen = GameOverScreen(screen)
     settings_menu = SettingsMenu(screen)
+    settings_menu.attach_profile(prof)
 
     awaiting = None
     selected_slot = None
@@ -224,25 +344,145 @@ def main():
     react_opponent_slot = None
     react_give_slot = None
 
+    notification_text: str = ""
+    notification_timer: float = 0.0
+
     running = True
     while running:
         dt = clock.tick(FPS) / 1000.0
         mouse_pos = pygame.mouse.get_pos()
 
-        if game_manager:
+        audio.update(dt)
+        toasts.update(dt)
+        particles.update(dt)
+        pause.update(dt if paused else 0.0)
+        cam.update(dt)
+        edge_flash.update(dt)
+        lamp.update(dt)
+        tutorial.update(dt)
+        first_launch.update(dt)
+        access_panel.update(dt)
+        time_scale = timewarp.update(dt)
+        if not paused:
+            game_dt = dt * time_scale
+            if current_screen == "game" and game_manager is not None:
+                particles.ambient_dust(SCREEN_WIDTH, SCREEN_HEIGHT,
+                                       color=theme.active().lamp_glow)
+
+        if game_manager and not paused:
             game_manager.update(dt)
-        renderer.update(dt)
+        if not paused:
+            renderer.update(dt * time_scale)
+
+        if game_manager and current_screen == "game" and not paused:
+            log = getattr(game_manager, "game_log", [])
+            while last_log_index < len(log):
+                _react_to_log_entry(log[last_log_index], particles, toasts, game_manager, renderer,
+                                    cam=cam, edge_flash=edge_flash, timewarp=timewarp,
+                                    hints=hint_engine, last_human_action=last_human_action,
+                                    captions=captions if game_settings.captions else None)
+                last_log_index += 1
+        captions.update()
 
         if turn_end_timer > 0:
             turn_end_timer -= dt
             if turn_end_timer <= 0:
                 turn_end_timer = 0
-                game_manager.end_turn()
+                if game_manager:
+                    game_manager.end_turn()
+
+        if notification_timer > 0:
+            notification_timer -= dt
+            if notification_timer <= 0:
+                notification_text = ""
 
         for event in pygame.event.get():
+            event = _translate_mouse_event(event, display)
             if event.type == pygame.QUIT:
+                profile_mod.save(prof)
                 running = False
                 break
+
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_F1:
+                if access_panel.active:
+                    access_panel.close()
+                else:
+                    access_panel.open()
+                continue
+
+            if access_panel.active:
+                a_action = access_panel.handle_event(event, prof, game_settings)
+                if a_action:
+                    continue
+
+            if first_launch.active:
+                fl_action = first_launch.handle_event(event)
+                if fl_action == "tutorial":
+                    tutorial.start()
+                    audio.play("click")
+                elif fl_action == "skip":
+                    audio.play("click")
+                if fl_action:
+                    continue
+
+            if tutorial.active:
+                t_action = tutorial.handle_event(event)
+                if t_action == "advance":
+                    if tutorial.advance():
+                        prof.tutorial_complete = True
+                        profile_mod.unlock(prof, "tutorial_done")
+                        profile_mod.save(prof)
+                        toasts.push("Tutorial complete!", kind="achievement",
+                                    icon="*", life=3.0)
+                elif t_action == "skip":
+                    audio.play("click")
+                if t_action:
+                    continue
+
+            if paused:
+                action, payload = pause.handle_event(event)
+                if action == "select":
+                    if payload == "resume":
+                        paused = False
+                        audio.unduck()
+                        audio.play("ui_close")
+                    elif payload == "restart":
+                        if game_manager is not None:
+                            configs = []
+                            for p in game_manager.players:
+                                configs.append({
+                                    "name": p.name,
+                                    "is_human": p.is_human,
+                                    "difficulty": getattr(p, "difficulty", "medium"),
+                                })
+                            game_meta = _new_game_meta(len(configs), configs, game_settings)
+                            game_start_time = pygame.time.get_ticks() / 1000.0
+                            last_log_index = 0
+                            game_manager = GameManager(configs, game_settings)
+                            game_manager.setup_game()
+                            peek_screen = PeekScreen(screen, game_manager.settings.hand_size,
+                                                     game_manager.settings.peek_count,
+                                                     game_settings.peek_phase_seconds)
+                            paused = False
+                            audio.unduck()
+                            current_screen = "peek"
+                    elif payload == "settings":
+                        settings_open = True
+                        paused = False
+                        audio.unduck()
+                    elif payload == "how_to_play":
+                        current_screen = "how_to_play"
+                        paused = False
+                        audio.unduck()
+                    elif payload == "quit_menu":
+                        profile_mod.save(prof)
+                        game_manager = None
+                        game_over_result = None
+                        current_screen = "menu"
+                        paused = False
+                        audio.unduck()
+                        last_log_index = 0
+                continue
 
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 if awaiting is not None:
@@ -252,10 +492,19 @@ def main():
                     pair_opponent_give_slot = None
                     status_message = ""
                     game_manager.cancel_targeting()
+                    audio.play("click")
                     continue
 
                 if settings_open and current_screen == "game":
                     settings_open = False
+                    audio.play("ui_close")
+                    continue
+
+                if current_screen == "game" and game_manager is not None:
+                    paused = True
+                    pause.reset()
+                    audio.duck(0.35)
+                    audio.play("ui_open")
                     continue
 
             if event.type == pygame.KEYDOWN and event.key == pygame.K_s:
@@ -269,13 +518,61 @@ def main():
                     game_manager.cancel_targeting()
                     continue
 
+            if (current_screen == "game" and game_manager is not None
+                    and event.type == pygame.KEYDOWN
+                    and not awaiting and not paused and not settings_open):
+                cp = game_manager.current_player()
+                if cp.is_human:
+                    NUMBER_TO_ACTION = {
+                        pygame.K_1: "draw",
+                        pygame.K_2: "declare",
+                        pygame.K_3: "swap",
+                        pygame.K_4: "discard",
+                        pygame.K_5: "pair_own",
+                        pygame.K_6: "play_power",
+                        pygame.K_7: "pair_opponent",
+                    }
+                    if event.key in NUMBER_TO_ACTION:
+                        target_action = NUMBER_TO_ACTION[event.key]
+                        action_buttons_now = _build_action_buttons(game_manager, ui_font, game_settings)
+                        if target_action in action_buttons_now:
+                            btn = action_buttons_now[target_action]
+                            synth = pygame.event.Event(
+                                pygame.MOUSEBUTTONDOWN,
+                                {"button": 1, "pos": btn["rect"].center}
+                            )
+                            pygame.event.post(synth)
+                            audio.play("click")
+                            continue
+
             if current_screen == "menu":
                 action = menu_screen.handle_event(event)
                 if action == "new_game":
                     current_screen = "setup"
-                    setup_screen = SetupScreen(screen, game_settings)
+                    setup_screen = SetupScreen(screen)
+                    audio.play("click")
+                elif action == "tutorial":
+                    tutorial.start()
+                    audio.play("click")
+                elif action == "how_to_play":
+                    current_screen = "how_to_play"
+                    audio.play("ui_open")
+                elif action == "profile":
+                    current_screen = "profile"
+                    audio.play("ui_open")
                 elif action == "quit":
+                    profile_mod.save(prof)
                     running = False
+
+            elif current_screen == "profile":
+                action = profile_screen.handle_event(event, prof)
+                if action == "back":
+                    current_screen = "menu"
+
+            elif current_screen == "how_to_play":
+                action = how_to_screen.handle_event(event)
+                if action == "back":
+                    current_screen = "menu"
 
             elif current_screen == "setup":
                 action = setup_screen.handle_event(event)
@@ -284,17 +581,19 @@ def main():
                     configs = setup_screen.players_config[:setup_screen.num_players]
                     game_manager = GameManager(configs, game_settings)
                     game_manager.setup_game()
-                    if game_settings.peek_count == 0:
-                        game_manager.start_peek_phase()
-                        awaiting = None
-                        selected_slot = None
-                        turn_end_timer = 0
-                        ai_phase = 'idle'
-                        ai_timer = 0
-                        current_screen = "game"
-                    else:
-                        peek_screen = PeekScreen(screen, game_settings.hand_size, game_settings.peek_count, game_settings.peek_phase_seconds)
-                        current_screen = "peek"
+                    peek_screen = PeekScreen(screen, game_manager.settings.hand_size, game_manager.settings.peek_count, game_settings.peek_phase_seconds)
+                    current_screen = "peek"
+                    game_meta = _new_game_meta(len(configs), configs, game_settings)
+                    game_start_time = pygame.time.get_ticks() / 1000.0
+                    last_log_index = 0
+                    toasts.clear()
+                    particles.clear()
+                    audio.play("shuffle")
+                    prof.last_match_config = {
+                        "configs": [{"name": c["name"], "is_human": c["is_human"],
+                                     "difficulty": c.get("difficulty", "medium")} for c in configs],
+                        "num_players": setup_screen.num_players,
+                    }
                 elif action == "back":
                     current_screen = "menu"
 
@@ -314,8 +613,15 @@ def main():
                     result = settings_menu.handle_event(event, game_settings, game_manager)
                     if result == 'close':
                         settings_open = False
+                        audio.play("ui_close")
                     elif result == 'updated':
-                        pass
+                        prof.settings.captions = game_settings.captions
+                        prof.settings.coach_mode = game_settings.coach_mode
+                        prof.settings.streamer_mode = game_settings.streamer_mode
+                        prof.settings.hint_tier = game_settings.hint_tier
+                        prof.settings.motion_scale = game_settings.motion_scale
+                        prof.settings.particles_enabled = game_settings.particles_enabled
+                        profile_mod.save(prof)
                     continue
 
                 if game_manager is None:
@@ -402,6 +708,24 @@ def main():
                         pair_opponent_give_slot = None
                         status_message = ""
                         game_manager.cancel_targeting()
+                        audio.play("ui_open" if settings_open else "ui_close")
+                        continue
+
+                    if renderer.get_pause_rect().collidepoint(mouse_pos):
+                        paused = True
+                        pause.reset()
+                        audio.duck(0.35)
+                        audio.play("ui_open")
+                        continue
+
+                    if renderer.get_quit_rect().collidepoint(mouse_pos):
+                        profile_mod.save(prof)
+                        game_manager = None
+                        game_over_result = None
+                        current_screen = "menu"
+                        last_log_index = 0
+                        toasts.push("Match abandoned.", kind="info", icon="!", life=2.0)
+                        audio.play("ui_close")
                         continue
 
                     if game_settings and game_settings.shuffle_enabled and human_idx is not None:
@@ -805,7 +1129,7 @@ def main():
                 if action == "play_again":
                     game_over_result = None
                     current_screen = "setup"
-                    setup_screen = SetupScreen(screen, game_settings)
+                    setup_screen = SetupScreen(screen)
                 elif action == "menu":
                     game_over_result = None
                     current_screen = "menu"
@@ -1025,14 +1349,23 @@ def main():
             swap_second_click = False
             status_message = ""
 
-        screen.fill(BG_DARK)
+        if current_screen == "game_over" and prev_screen == "game" and game_manager is not None:
+            _finalize_game_stats(prof, game_manager, game_over_result, game_meta,
+                                  game_start_time, toasts, particles, achievement_queue)
+        prev_screen = current_screen
+
+        screen.fill(BG_GREEN)
 
         if current_screen == "menu":
-            menu_screen.update(dt)
             menu_screen.draw()
 
+        elif current_screen == "profile":
+            profile_screen.draw(prof)
+
+        elif current_screen == "how_to_play":
+            how_to_screen.draw()
+
         elif current_screen == "setup":
-            setup_screen.update(dt)
             setup_screen.draw()
 
         elif current_screen == "peek":
@@ -1051,17 +1384,53 @@ def main():
                 current_screen = "menu"
             else:
                 cp = game_manager.current_player()
+                human_idx = _get_human_index(game_manager)
                 action_buttons = _build_action_buttons(game_manager, ui_font, game_settings) if cp.is_human or game_manager.state == GameState.REACTION_WINDOW else {}
 
                 if game_manager.state == GameState.REACTION_WINDOW:
-                    human_idx = _get_human_index(game_manager)
                     if human_idx is not None:
                         action_buttons = _build_action_buttons(game_manager, ui_font, game_settings)
 
                 cancel_btn = None
                 if awaiting is not None and cp.is_human:
                     cancel_btn = _build_cancel_button("Cancel", ui_font)
+
+                if cp.is_human:
+                    ai_decider_for_hints = AIDecider(cp, {'players': game_manager.players})
+                    dim_keys, pulse_keys = hint_engine.evaluate_actions(
+                        game_manager, action_buttons, ai_decider=ai_decider_for_hints,
+                    )
+                    renderer._dim_actions = dim_keys
+                    renderer._pulse_actions = pulse_keys
+                    renderer._action_keybinds = {
+                        "draw": "1", "declare": "2", "swap": "3",
+                        "discard": "4", "pair_own": "5",
+                        "play_power": "6", "pair_opponent": "7",
+                    }
+                else:
+                    renderer._dim_actions = set()
+                    renderer._pulse_actions = set()
+                    renderer._action_keybinds = {}
+
                 renderer.draw(game_manager, mouse_pos, action_buttons, cancel_btn, status_message, awaiting)
+                hint_engine.draw_recent_discards(screen, getattr(game_manager, "discard_pile", []))
+                hint_engine.draw_coach(screen)
+
+                power_label, power_color = hint_engine.power_label_for_drawn(game_manager)
+                if power_label and game_manager.drawn_card:
+                    label_surf = ui_font.render(f"Power: {power_label}", True, power_color)
+                    pad = 8
+                    bx = DRAWN_CARD_POS[0] - label_surf.get_width() // 2 - pad
+                    by = DRAWN_CARD_POS[1] - 90
+                    bg = pygame.Surface((label_surf.get_width() + pad * 2,
+                                         label_surf.get_height() + 8), pygame.SRCALPHA)
+                    pygame.draw.rect(bg, (0, 0, 0, 180), bg.get_rect(), border_radius=6)
+                    pygame.draw.rect(bg, power_color, bg.get_rect(), 1, border_radius=6)
+                    screen.blit(bg, (bx, by))
+                    screen.blit(label_surf, (bx + pad, by + 4))
+
+                if notification_text:
+                    renderer.draw_reaction_result(notification_text, screen)
 
                 if game_settings and game_settings.shuffle_enabled and cp.is_human and human_idx is not None:
                     num_players = len(game_manager.players)
@@ -1105,10 +1474,184 @@ def main():
             elif game_manager:
                 renderer.draw_gear_icon(mouse_pos, settings_open)
 
-        pygame.display.flip()
+        particles.draw(screen)
+        edge_flash.draw(screen)
+        if current_screen == "game":
+            screen.blit(vignette.get(0.45), (0, 0))
+        if current_screen == "game" and game_settings.streamer_mode:
+            stream_cover = pygame.Surface((SCREEN_WIDTH, 220), pygame.SRCALPHA)
+            stream_cover.fill((0, 0, 0, 220))
+            label_font = pygame.font.SysFont("arial", 22, bold=True)
+            label = label_font.render("STREAM-SAFE — Hand hidden", True, (200, 200, 200))
+            stream_cover.blit(label, (24, 96))
+            screen.blit(stream_cover, (0, SCREEN_HEIGHT - 220))
+        if game_settings.captions:
+            captions.draw(screen)
+        toasts.draw(screen)
+
+        if paused and current_screen == "game":
+            pause.draw(screen)
+
+        if tutorial.active:
+            tutorial.draw(screen)
+        if first_launch.active:
+            first_launch.draw(screen)
+        if access_panel.active:
+            access_panel.draw(screen, prof, game_settings)
+
+        display.set_shake(cam.offset())
+        display.present()
 
     pygame.quit()
     sys.exit()
+
+
+def _resume_ai_turn():
+    pass
+
+
+def _new_game_meta(player_count, configs, gs):
+    diffs = [c.get("difficulty", "medium") for c in configs if not c.get("is_human")]
+    return {
+        "player_count": player_count,
+        "ai_count": sum(1 for c in configs if not c.get("is_human")),
+        "all_hard_ai": len(diffs) > 0 and all(d == "hard" for d in diffs),
+        "pairs_made": 0,
+        "pairs_on_opponents": 0,
+        "powers_used": 0,
+        "reactive_correct": 0,
+        "reactive_wrong": 0,
+        "cards_drawn": 0,
+        "won": False,
+        "declared_won": False,
+        "declared_lost": False,
+        "auto_win": False,
+        "final_score_human": None,
+        "play_seconds": 0.0,
+    }
+
+
+def _finalize_game_stats(prof, gm, result, meta, game_start_time, toasts, particles, queue):
+    if not result:
+        return
+    play_seconds = max(0.0, pygame.time.get_ticks() / 1000.0 - game_start_time)
+    human = next((p for p in gm.players if p.is_human), None)
+    winner_idx = result.get("winner")
+    won = (human is not None and winner_idx == human.seat_index)
+    declared_won = bool(result.get("declarer_won")) and won
+    declared_lost = bool(result.get("declarer_won") is False
+                          and result.get("declarer_index") == (human.seat_index if human else -1))
+    auto_win = bool(result.get("auto_win")) and won
+    final_score = None
+    if human is not None:
+        scores = result.get("scores", {})
+        final_score = scores.get(human.seat_index)
+
+    meta_out = dict(meta)
+    meta_out["won"] = won
+    meta_out["declared_won"] = declared_won
+    meta_out["declared_lost"] = declared_lost
+    meta_out["auto_win"] = auto_win
+    meta_out["final_score_human"] = final_score
+    meta_out["play_seconds"] = play_seconds
+
+    profile_mod.record_game_result(prof, meta_out)
+    newly = profile_mod.evaluate_achievements(prof, meta_out)
+    profile_mod.save(prof)
+
+    for key in newly:
+        rec = prof.achievements.get(key, {})
+        title = rec.get("title", key)
+        toasts.push(f"Achievement: {title}", kind="achievement", icon="★", life=4.0)
+        particles.burst_achievement(960, 540)
+        audio.play("achievement")
+        queue.append(key)
+
+
+def _react_to_log_entry(entry, particles, toasts, gm, renderer,
+                        cam=None, edge_flash=None, timewarp=None,
+                        hints=None, last_human_action=None,
+                        captions=None):
+    def cap(key):
+        if captions is not None:
+            text = audio.caption(key)
+            if text:
+                captions.push(text)
+    text = entry if isinstance(entry, str) else str(entry)
+    low = text.lower()
+
+    try:
+        from config import DECK_CENTER, DRAWN_CARD_POS, DISCARD_POS
+    except ImportError:
+        DECK_CENTER = (640, 400)
+        DRAWN_CARD_POS = (860, 400)
+        DISCARD_POS = (750, 400)
+
+    if "drew" in low and "as penalty" not in low:
+        audio.play("draw"); cap("draw")
+    elif "discarded" in low or "discards" in low:
+        audio.play("place"); cap("place")
+        x, y = DISCARD_POS
+        particles.trail(x, y)
+        if cam: cam.kick(amp=1.5, duration=0.10)
+        if hints and "you " in low:
+            drawn = getattr(gm, "drawn_card", None)
+            hints.evaluate_post_turn(gm, {"kind": "discard"}, drawn)
+    elif "paired" in low or "pairs" in low:
+        audio.play("pair"); cap("pair")
+        x, y = DRAWN_CARD_POS
+        particles.burst_pair(x, y)
+        toasts.push("Pair!", kind="success", icon="*", life=1.6)
+        if cam: cam.kick(amp=2.5, duration=0.18)
+    elif "peek" in low:
+        audio.play("power_peek"); cap("power_peek")
+        particles.burst_power(*DECK_CENTER, color=(111, 207, 227))
+    elif "swap" in low and "swapped" in low:
+        audio.play("power_swap"); cap("power_swap")
+        particles.burst_power(*DECK_CENTER, color=(120, 220, 140))
+        if cam: cam.kick(amp=1.5, duration=0.12)
+    elif "skip" in low and ("skipped" in low or "skips" in low):
+        audio.play("power_skip"); cap("power_skip")
+        if cam: cam.kick(amp=2.0, duration=0.14)
+    elif "declared" in low or "declares" in low:
+        audio.play("declare"); cap("declare")
+        toasts.push("Declared!", kind="warn", icon="!", life=2.6)
+        particles.burst_declare(960, 540)
+        if cam: cam.kick(amp=4.0, duration=0.45, freq=18)
+        if edge_flash: edge_flash.fire(duration=0.9, thickness=36)
+        if timewarp: timewarp.slowmo(factor=0.45, duration=1.4)
+    elif "wrong card" in low or "penalty" in low:
+        audio.play("wrong_react"); cap("wrong_react")
+        particles.burst_penalty(960, 540)
+        if cam: cam.kick(amp=4.5, duration=0.30, freq=28)
+        if edge_flash:
+            edge_flash.fire(color=(212, 72, 72), duration=0.5, thickness=24)
+    elif "reaction" in low and ("opens" in low or "begins" in low or "window" in low):
+        audio.play("react_open"); cap("react_open")
+        if edge_flash: edge_flash.fire(duration=0.6, thickness=28)
+    elif "self-paired" in low:
+        audio.play("pair"); cap("pair")
+        x, y = DRAWN_CARD_POS
+        particles.burst_pair(x, y)
+        toasts.push("Self-Pair!", kind="success", icon="*", life=1.6)
+        if cam: cam.kick(amp=3.0, duration=0.20)
+    elif "shuffled their cards" in low:
+        audio.play("shuffle")
+        particles.burst_power(*DECK_CENTER, color=(180, 140, 255))
+        toasts.push("Shuffled!", kind="info", icon="#", life=1.2)
+        if cam: cam.kick(amp=2.0, duration=0.15)
+    elif "dropped" in low and "match" in low:
+        audio.play("pair"); cap("pair")
+        x, y = DECK_CENTER
+        particles.burst_pair(x, y)
+        toasts.push("Match!", kind="success", icon="*", life=1.6)
+        if cam: cam.kick(amp=3.0, duration=0.20)
+    elif "called opponent" in low:
+        audio.play("pair"); cap("pair")
+        x, y = DECK_CENTER
+        particles.burst_pair(x, y)
+        toasts.push("Called!", kind="success", icon="*", life=1.6)
+        if cam: cam.kick(amp=3.0, duration=0.20)
 
 
 if __name__ == "__main__":

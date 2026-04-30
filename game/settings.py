@@ -29,10 +29,25 @@ class GameSettings:
     wrong_drop_penalty: bool = DEFAULT_WRONG_DROP_PENALTY
     reaction_window_seconds: float = DEFAULT_REACTION_WINDOW_SECONDS
 
+    hint_tier: int = 1
+    coach_mode: bool = False
+    streamer_mode: bool = False
+    motion_scale: float = 1.0
+    particles_enabled: bool = True
+    captions: bool = False
+
     def effective_anim_duration(self, base_duration: float) -> float:
         if not self.animations_enabled:
             return 0.01
-        return base_duration
+        return base_duration * max(0.2, min(1.0, self.motion_scale))
 
     def get_ai_delay_for(self, seat_index: int) -> float:
         return self.ai_difficulties.get(seat_index, DEFAULT_AI_DIFFICULTY)
+
+    def apply_persistent(self, settings_bag):
+        self.motion_scale = settings_bag.motion_scale
+        self.particles_enabled = settings_bag.particles_enabled
+        self.captions = settings_bag.captions
+        self.hint_tier = settings_bag.hint_tier
+        self.coach_mode = settings_bag.coach_mode
+        self.streamer_mode = settings_bag.streamer_mode
