@@ -124,7 +124,7 @@ class MenuScreen:
         self.screen.blit(subtitle_surf, subtitle_surf.get_rect(center=(SCREEN_WIDTH // 2, 205)))
 
         for button in self.buttons:
-            button.draw(self.screen, self.button_font)
+            button.draw(self.screen)
 
     def update(self, dt):
         self._time += dt
