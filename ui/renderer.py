@@ -176,7 +176,7 @@ class Renderer:
         state_x = name_x + name_surf.get_width() + 16
         self.screen.blit(state_surf, (state_x, (STATUS_BAR_H - state_surf.get_height()) // 2 + 2))
 
-    def draw_card_face(self, x, y, card, selected=False, hovered=False, show_power_label=False):
+    def draw_card_face(self, x, y, card, selected=False, hovered=False, show_power_label=False, show_pips=True):
         rect = pygame.Rect(x, y, CARD_WIDTH, CARD_HEIGHT)
         self._draw_shadow(x, y)
         bg_color = CARD_WHITE
@@ -193,7 +193,8 @@ class Renderer:
         pygame.draw.rect(self.screen, (200, 200, 205), accent_rect, border_radius=3)
         pygame.draw.rect(self.screen, color, accent_inner, border_radius=2)
 
-        self._draw_suit_pips(x, y, card)
+        if show_pips:
+            self._draw_suit_pips(x, y, card)
 
         big_surf = self.card_big_font.render(card.rank, True, color)
         big_rect = big_surf.get_rect(center=(x + CARD_WIDTH // 2 + 8, y + CARD_HEIGHT // 2 - 8))
@@ -739,7 +740,7 @@ class Renderer:
         label_surf = self.small_font.render("DREW", True, GOLD)
         label_rect = label_surf.get_rect(center=(cx, dy - 12))
         self.screen.blit(label_surf, label_rect)
-        rect = self.draw_card_face(dx, dy, card, show_power_label=True)
+        rect = self.draw_card_face(dx, dy, card, show_power_label=True, show_pips=False)
         return rect
 
     def draw_peek_reveal(self):
