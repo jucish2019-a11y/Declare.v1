@@ -340,17 +340,17 @@ class FirstLaunchSplash:
 
         title = self._title_font.render("Welcome to Declare", True, th.brass_300)
         title.set_alpha(int(255 * self._fade))
-        screen.blit(title, title.get_rect(center=(SCREEN_WIDTH // 2, 280)))
+        screen.blit(title, title.get_rect(center=(SCREEN_WIDTH // 2, 250)))
 
         body = "First time at the table?"
         body_surf = self._body_font.render(body, True, th.text_white)
         body_surf.set_alpha(int(255 * self._fade))
-        screen.blit(body_surf, body_surf.get_rect(center=(SCREEN_WIDTH // 2, 360)))
+        screen.blit(body_surf, body_surf.get_rect(center=(SCREEN_WIDTH // 2, 320)))
 
         body2 = "We can walk you through the rules in five minutes."
         body2_surf = self._body_font.render(body2, True, th.text_dim)
         body2_surf.set_alpha(int(255 * self._fade))
-        screen.blit(body2_surf, body2_surf.get_rect(center=(SCREEN_WIDTH // 2, 396)))
+        screen.blit(body2_surf, body2_surf.get_rect(center=(SCREEN_WIDTH // 2, 356)))
 
         bw, bh = 280, 56
         cx = SCREEN_WIDTH // 2
