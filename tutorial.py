@@ -364,7 +364,7 @@ class FirstLaunchSplash:
 
         pygame.draw.rect(screen, (60, 60, 60), self._skip_rect, border_radius=10)
         pygame.draw.rect(screen, th.brass_700, self._skip_rect, 2, border_radius=10)
-         ss = self._btn_font.render("Skip - I know how to play", True, th.text_white)
+        ss = self._btn_font.render("Skip - I know how to play", True, th.text_white)
         screen.blit(ss, ss.get_rect(center=self._skip_rect.center))
 
     def handle_event(self, event):
