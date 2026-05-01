@@ -194,10 +194,10 @@ class MenuScreen:
                 self.title_font, "DECLARE", t_color, spacing_px=10,
             )
             t_surf.set_alpha(alpha)
-            r = t_surf.get_rect(center=(SCREEN_WIDTH // 2 + offset, 200 + offset))
+            r = t_surf.get_rect(center=(SCREEN_WIDTH // 2 + offset, 160 + offset))
             self.screen.blit(t_surf, r)
 
-        flourish_y = 252
+        flourish_y = 212
         line_w = 220
         cx = SCREEN_WIDTH // 2
         pygame.draw.line(self.screen, th.brass_500, (cx - line_w, flourish_y),
@@ -209,7 +209,7 @@ class MenuScreen:
 
         subtitle_surf = self.subtitle_font.render("A Card Game of Memory & Strategy",
                                                    True, th.text_dim)
-        self.screen.blit(subtitle_surf, subtitle_surf.get_rect(center=(SCREEN_WIDTH // 2, 280)))
+        self.screen.blit(subtitle_surf, subtitle_surf.get_rect(center=(SCREEN_WIDTH // 2, 240)))
 
         for button in self.buttons:
             button.draw(self.screen, self.button_font)
