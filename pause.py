@@ -84,7 +84,7 @@ class PauseOverlay:
             screen.blit(label_surf, rect)
 
         hint_surf = self._small_font.render(
-            "Esc — Resume    ↑↓ — Navigate    Enter — Select",
+             "Esc - Resume    Up/Down - Navigate    Enter - Select",
             True, t.text_dim,
         )
         screen.blit(hint_surf, hint_surf.get_rect(center=(SCREEN_WIDTH // 2, panel_y + panel_h - 28)))

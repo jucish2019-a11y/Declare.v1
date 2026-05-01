@@ -527,7 +527,7 @@ class SettingsMenu:
         prof = self._profile_ref
         if prof is None:
             ts = self.label_font.render(
-                "Profile not yet loaded — accessibility settings unavailable.",
+                "Profile not yet loaded - accessibility settings unavailable.",
                 True, TEXT_DIM,
             )
             self.screen.blit(ts, (lx, y))
@@ -565,7 +565,7 @@ class SettingsMenu:
         prof = self._profile_ref
         if prof is None:
             ts = self.label_font.render(
-                "Profile not yet loaded — volume controls unavailable.",
+                "Profile not yet loaded - volume controls unavailable.",
                 True, TEXT_DIM,
             )
             self.screen.blit(ts, (lx, y))

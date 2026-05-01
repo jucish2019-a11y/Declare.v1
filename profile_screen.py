@@ -86,7 +86,7 @@ class ProfileScreen:
         cards = [
             ("Games Played", s.games_played),
             ("Games Won",    s.games_won),
-            ("Win Rate",     f"{(s.games_won / s.games_played * 100):.0f}%" if s.games_played > 0 else "—"),
+            ("Win Rate",     f"{(s.games_won / s.games_played * 100):.0f}%" if s.games_played > 0 else "-"),
             ("Current Streak", s.current_win_streak),
             ("Longest Streak", s.longest_win_streak),
             ("Declares Won",   s.declares_won),
@@ -215,7 +215,7 @@ HOW_TO_SECTIONS = [
      "or declare.  3. Pass the turn."),
     ("Pairing",
      "If your drawn card matches the rank of a card you have seen, "
-     "you can pair them — both go to discard. Pairing one of an "
+     "you can pair them - both go to discard. Pairing one of an "
      "opponent's cards forces them to take one of yours in return."),
     ("Reactive Pairing",
      "When ANY player plays a card, every other player has a brief "
@@ -228,7 +228,7 @@ HOW_TO_SECTIONS = [
     ("Declare",
      "When you think you have the lowest hand-total, click Declare. "
      "If you do, you win. If you don't, your score is doubled. "
-     "Use this carefully — you only get one shot."),
+     "Use this carefully - you only get one shot."),
     ("Memory is Everything",
      "Cards you peek are marked with a gold dot. Pay attention to which "
      "ranks you've seen, what opponents have drawn, and what's been "

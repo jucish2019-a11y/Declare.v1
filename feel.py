@@ -74,7 +74,7 @@ class TimeWarp:
 
 
 class EdgeFlash:
-    """Glowing inner-frame outline drawn on top — used for reaction-window open
+    """Glowing inner-frame outline drawn on top - used for reaction-window open
     and other 'something just happened' moments."""
     def __init__(self):
         self.life = 0.0
@@ -144,7 +144,7 @@ class Vignette:
 
 class LampGlow:
     """Slow moving warm-light ray across the felt for atmosphere.
-    Very subtle — meant to add ambience, not obscure gameplay."""
+    Very subtle - meant to add ambience, not obscure gameplay."""
     def __init__(self):
         self.t = 0.0
         self.speed = 1.0 / 60.0

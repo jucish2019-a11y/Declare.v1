@@ -1,13 +1,13 @@
 """Hint engine: three tiers of progressive guidance.
 
-Tier 1 — Affordance hints: dim suboptimal action buttons, gently pulse the
+Tier 1 - Affordance hints: dim suboptimal action buttons, gently pulse the
 defensible one, label the drawn card's power.
 
-Tier 2 — Memory aids: tinted gold known-card markers (rank-coded for 30s,
+Tier 2 - Memory aids: tinted gold known-card markers (rank-coded for 30s,
 fading back to neutral), recently-discarded fan, opponent card-count chips.
 
-Tier 3 — Coach mode (off by default, opt-in): post-turn replay text,
-"you discarded the 9 — could have paired with slot 2".
+Tier 3 - Coach mode (off by default, opt-in): post-turn replay text,
+"you discarded the 9 - could have paired with slot 2".
 
 Never shows: opponent unknown cards, declare-will-win predictions, deck top.
 """
@@ -190,14 +190,14 @@ class HintEngine:
             for slot, card in cp.known_cards.items():
                 if card and card.rank == drawn_card.rank:
                     self.coach_log(
-                        f"You discarded the {drawn_card.rank} — could have paired your "
+                         f"You discarded the {drawn_card.rank} - could have paired your "
                         f"{card.rank} of {card.suit} in slot {slot + 1}."
                     )
                     return
             for (p_idx, s_idx), card in cp.known_opponent_cards.items():
                 if card and card.rank == drawn_card.rank:
                     self.coach_log(
-                        f"You discarded the {drawn_card.rank} — could have paired the "
+                         f"You discarded the {drawn_card.rank} - could have paired the "
                         f"{card.rank} you saw in opponent {p_idx}'s slot {s_idx + 1}."
                     )
                     return
@@ -208,7 +208,7 @@ class HintEngine:
                 old = cp.known_cards[slot]
                 if old and old.value < (drawn_card.value if drawn_card.value is not None else 99):
                     self.coach_log(
-                        f"You swapped a known {old.rank} (value {old.value}) for an unknown — "
+                         f"You swapped a known {old.rank} (value {old.value}) for an unknown - "
                         f"may have raised your hand."
                     )
                     return

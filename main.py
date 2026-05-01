@@ -1496,7 +1496,7 @@ def main():
             stream_cover = pygame.Surface((SCREEN_WIDTH, 220), pygame.SRCALPHA)
             stream_cover.fill((0, 0, 0, 220))
             label_font = pygame.font.SysFont("arial", 22, bold=True)
-            label = label_font.render("STREAM-SAFE — Hand hidden", True, (200, 200, 200))
+            label = label_font.render("STREAM-SAFE - Hand hidden", True, (200, 200, 200))
             stream_cover.blit(label, (24, 96))
             screen.blit(stream_cover, (0, SCREEN_HEIGHT - 220))
         if game_settings.captions:

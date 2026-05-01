@@ -74,7 +74,7 @@ import typography as typo
 
 
 def _get_font(size, bold=False):
-    """Legacy helper — defaults to body face. Most screens now call typo
+    """Legacy helper - defaults to body face. Most screens now call typo
     families directly (display/header/body) for proper typographic hierarchy."""
     return typo.body_bold(size) if bold else typo.body(size)
 
@@ -215,7 +215,7 @@ class MenuScreen:
             button.draw(self.screen, self.button_font)
 
         footer_font = self.button_font
-        footer = footer_font.render("v1.0 — Built with care", True, th.text_muted)
+        footer = footer_font.render("v1.0 - Built with care", True, th.text_muted)
         self.screen.blit(footer, (16, SCREEN_HEIGHT - 28))
 
     def handle_event(self, event):
@@ -327,7 +327,7 @@ class SetupScreen:
             t_surf.set_alpha(alpha)
             self.screen.blit(t_surf, t_surf.get_rect(center=(SCREEN_WIDTH // 2 + offset, 100 + offset)))
 
-        sub = self.subtitle_font.render("Choose your seats — name yourself, set opponents.",
+        sub = self.subtitle_font.render("Choose your seats - name yourself, set opponents.",
                                           True, th.text_dim)
         self.screen.blit(sub, sub.get_rect(center=(SCREEN_WIDTH // 2, 154)))
 
@@ -550,7 +550,7 @@ class PeekScreen:
         self.max_time = peek_seconds
         self.elapsed = 0.0
         self.revealed = True
-        self.done_button = Button(SCREEN_WIDTH // 2, 720, 320, 56, "I've Memorized — Continue",
+        self.done_button = Button(SCREEN_WIDTH // 2, 720, 320, 56, "I've Memorized - Continue",
                                    SWAP_GREEN, SWAP_GREEN_HOVER)
 
     def _draw_background(self):
@@ -583,11 +583,11 @@ class PeekScreen:
 
         if self.peek_count == 0:
             sub = self.subtitle_font.render(
-                "No cards to peek this round — go in blind.", True, th.text_dim)
+                "No cards to peek this round - go in blind.", True, th.text_dim)
             self.screen.blit(sub, sub.get_rect(center=(SCREEN_WIDTH // 2, 180)))
         else:
             sub = self.subtitle_font.render(
-                f"Memorize your bottom {self.peek_count} card{'s' if self.peek_count > 1 else ''} — "
+                f"Memorize your bottom {self.peek_count} card{'s' if self.peek_count > 1 else ''} - "
                 "they vanish when the timer runs out.",
                 True, th.text_dim,
             )
@@ -642,7 +642,7 @@ class PeekScreen:
                 pygame.draw.rect(self.screen, (*th.felt_rim, ), empty, border_radius=12)
                 pygame.draw.rect(self.screen, th.brass_700, empty, 2, border_radius=12)
                 dash_font = typo.header(28)
-                dash = dash_font.render("—", True, th.text_muted)
+                dash = dash_font.render("-", True, th.text_muted)
                 self.screen.blit(dash, dash.get_rect(center=empty.center))
             elif is_peek_slot:
                 face = card_render.paint_face(card, card_w, card_h)
@@ -872,7 +872,7 @@ class GameOverScreen:
                                  border_radius=CORNER_RADIUS)
                 pygame.draw.rect(self.screen, th.brass_700, empty_rect, 1,
                                  border_radius=CORNER_RADIUS)
-                dash = self.label_font.render("—", True, th.text_dim)
+                dash = self.label_font.render("-", True, th.text_dim)
                 self.screen.blit(dash, dash.get_rect(center=empty_rect.center))
 
     def draw(self, game_manager, result=None):
@@ -887,7 +887,7 @@ class GameOverScreen:
         banner_color = th.brass_300
         if result:
             if result.get("auto_win"):
-                banner_text = "Auto-win — a player ran out of cards"
+                banner_text = "Auto-win - a player ran out of cards"
                 banner_color = th.signal_warn
             elif result.get("winner"):
                 winner = result["winner"]

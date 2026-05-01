@@ -1,4 +1,4 @@
-"""TutorialDirector — interactive 8-chapter onboarding.
+"""TutorialDirector - interactive 8-chapter onboarding.
 
 Sits parallel to the live game state. Each chapter drives a scripted scenario
 with a goal predicate ("the player must perform action X"). The director
@@ -59,7 +59,7 @@ CHAPTERS = [
     TutorialStep(
         title="Suits & Values",
         body="Aces = 1. Number cards = face value. J/Q = 11/12. "
-             "Red Kings = 13 (high). Black Kings = 0 — keep these. "
+              "Red Kings = 13 (high). Black Kings = 0 - keep these. "
              "Lowest sum wins.",
         target="center",
         advance_on="continue",
@@ -75,7 +75,7 @@ CHAPTERS = [
     TutorialStep(
         title="Pairing",
         body="If you draw a rank that matches a card you've seen, "
-             "you can pair them — both go to the discard pile. Pairing "
+              "you can pair them - both go to the discard pile. Pairing "
              "an opponent's card forces them to take one of yours.",
         target="discard",
         advance_on="continue",
@@ -364,7 +364,7 @@ class FirstLaunchSplash:
 
         pygame.draw.rect(screen, (60, 60, 60), self._skip_rect, border_radius=10)
         pygame.draw.rect(screen, th.brass_700, self._skip_rect, 2, border_radius=10)
-        ss = self._btn_font.render("Skip — I know how to play", True, th.text_white)
+         ss = self._btn_font.render("Skip - I know how to play", True, th.text_white)
         screen.blit(ss, ss.get_rect(center=self._skip_rect.center))
 
     def handle_event(self, event):

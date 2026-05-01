@@ -5,7 +5,7 @@ Each card is a PNG in the form '<rank>_of_<suit>.png'. We translate to our
 internal naming convention 'A_spade.png', '10_heart.png', 'K_club.png', etc.
 
 If the download fails (offline / firewall), card_render falls back to the
-procedural painter automatically — game still works.
+procedural painter automatically - game still works.
 
 Run:
     python download_cards.py

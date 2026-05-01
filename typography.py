@@ -1,9 +1,9 @@
 """Centralized type system for Declare.
 
 Three families:
-  Cinzel  — display (titles, hero text, declare moments)
-  Playfair Display — headers, section labels, large card numbers
-  Inter   — UI body, buttons, log, captions
+  Cinzel  - display (titles, hero text, declare moments)
+  Playfair Display - headers, section labels, large card numbers
+  Inter   - UI body, buttons, log, captions
 
 Falls back to system fonts if the bundled TTFs are missing.
 All font sizes flow through `theme.text_scale` so the accessibility text-scale
