@@ -51,6 +51,7 @@ class GameManager:
         self.current_player_index: int = 0
         self.drawn_card: Card | None = None
         self.has_drawn_this_turn: bool = False
+        self.drawn_card_resolved: bool = False
         self.skip_next: bool = False
         self.round_number: int = 0
         self.game_log: list[str] = []
@@ -77,6 +78,7 @@ class GameManager:
         self.deck = Deck()
         self.discard_pile = []
         self.rules_engine = RulesEngine(self.players, self.deck, self.discard_pile)
+        self.drawn_card_resolved = False
         hand_size = self.settings.hand_size
         for player in self.players:
             player.hand = [None] * hand_size
@@ -112,6 +114,7 @@ class GameManager:
         self.current_player_index = (self.current_player_index + 1) % len(self.players)
         if self.skip_next:
             self.skip_next = False
+            self.drawn_card_resolved = False
             self.current_player_index = (self.current_player_index + 1) % len(self.players)
         self.has_drawn_this_turn = False
         self.drawn_card = None
@@ -127,6 +130,7 @@ class GameManager:
         self.drawn_card = self.deck.draw()
         self.drawn_card.face_up = True
         self.has_drawn_this_turn = True
+        self.drawn_card_resolved = False
         self.state = GameState.DECIDE
         name = "You" if self.current_player().is_human else self.current_player().name
         self.game_log.append(f"{name} drew {self.drawn_card.display_name}")
@@ -175,6 +179,7 @@ class GameManager:
         elif action in ("swap", "discard", "pair_own", "pair_opponent"):
             self._last_action_type = action
             self._last_action_rank = self.drawn_card.rank if self.drawn_card else None
+            self.drawn_card_resolved = True
             self.state = GameState.DECIDE
         elif action == "shuffle":
             pass
@@ -353,6 +358,7 @@ class GameManager:
 
     def end_turn(self):
         self.state = GameState.TURN_END
+        self.drawn_card_resolved = False
         if self._last_action_rank:
             self._check_reaction_trigger(self.current_player_index, self._last_action_type, self._last_action_rank)
         self._last_action_rank = None
@@ -398,6 +404,13 @@ class GameManager:
             if self.reaction_timer <= 0:
                 self.end_reaction_window()
 
+    def can_self_pair_after_draw(self) -> bool:
+        if not self.drawn_card_resolved:
+            return False
+        player = self.current_player()
+        pairs = can_self_pair(player)
+        return bool(pairs)
+
     def cancel_targeting(self):
         pass
 
@@ -408,6 +421,7 @@ class GameManager:
             "current_player": self.current_player(),
             "current_player_index": self.current_player_index,
             "drawn_card": self.drawn_card,
+            "drawn_card_resolved": self.drawn_card_resolved,
             "deck_remaining": self.deck.remaining if self.deck else 0,
             "valid_actions": valid,
             "game_log": self.game_log[-10:],

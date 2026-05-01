@@ -48,6 +48,22 @@ from access_panel import AccessibilityPanel
 import daily
 
 
+def _should_offer_self_pair(gm, game_settings):
+    if not gm.drawn_card_resolved:
+        return False
+    if not game_settings or not game_settings.self_pair_enabled:
+        return False
+    cp = gm.current_player()
+    pairs = can_self_pair(cp)
+    return bool(pairs)
+
+
+def _schedule_end_turn(gm, game_settings, renderer):
+    if _should_offer_self_pair(gm, game_settings):
+        return
+    gm.end_turn()
+
+
 def _build_action_buttons(gm, ui_font, game_settings=None):
     buttons = {}
     cp = gm.current_player()
@@ -72,12 +88,13 @@ def _build_action_buttons(gm, ui_font, game_settings=None):
         x = SCREEN_WIDTH // 2 - 400
 
         if game_settings and game_settings.self_pair_enabled:
-            pairs = can_self_pair(cp)
-            if pairs:
-                w = 110
-                rect = pygame.Rect(x, btn_y - btn_h // 2, w, btn_h)
-                buttons['self_pair'] = {'rect': rect, 'text': 'Self-Pair', 'color': SELF_PAIR_COLOR, 'hover_color': SELF_PAIR_HOVER, 'font': ui_font}
-                x += w + spacing
+            if gm.drawn_card_resolved:
+                pairs = can_self_pair(cp)
+                if pairs:
+                    w = 110
+                    rect = pygame.Rect(x, btn_y - btn_h // 2, w, btn_h)
+                    buttons['self_pair'] = {'rect': rect, 'text': 'Self-Pair', 'color': SELF_PAIR_COLOR, 'hover_color': SELF_PAIR_HOVER, 'font': ui_font}
+                    x += w + spacing
 
         if 'play_power' in valid and gm.drawn_card and gm.drawn_card.power:
             power = gm.drawn_card.power
@@ -777,11 +794,12 @@ def main():
                             discarded = game_manager.drawn_card
                             renderer.push_discard_animation(game_manager)
                             game_manager.execute_player_action("discard", {"drawn_card": discarded})
-                            if game_settings.self_pair_enabled or game_settings.shuffle_enabled:
-                                game_manager.check_game_over()
+                            game_manager.check_game_over()
                             game_manager.start_reaction_window(discarded.rank, game_manager.current_player_index, discarded)
-                            turn_end_timer = ANIM_DISCARD_DURATION + 0.1
+                            awaiting = None
                             status_message = ""
+                            if game_manager.state != GameState.REACTION_WINDOW:
+                                _schedule_end_turn(game_manager, game_settings, renderer)
 
                         elif clicked_btn == 'play_power' and game_manager.state == GameState.DECIDE:
                             card = game_manager.drawn_card
@@ -848,7 +866,7 @@ def main():
                                             })
                                             awaiting = None
                                             status_message = ""
-                                            turn_end_timer = ANIM_SWAP_DURATION + 0.1
+                                            _schedule_end_turn(game_manager, game_settings, renderer)
                                             break
 
                             elif awaiting == 'peek_self':
@@ -869,7 +887,7 @@ def main():
                                                 renderer.set_peek_reveal(peeked_card, r.x, r.y, game_settings.peek_reveal_time)
                                             awaiting = None
                                             status_message = ""
-                                            turn_end_timer = 0.5
+                                            _schedule_end_turn(game_manager, game_settings, renderer)
                                             break
 
                             elif awaiting == 'peek_opponent':
@@ -892,7 +910,7 @@ def main():
                                                 renderer.set_peek_reveal(peeked_card, r.x, r.y, game_settings.peek_reveal_time)
                                             awaiting = None
                                             status_message = ""
-                                            turn_end_timer = 0.5
+                                            _schedule_end_turn(game_manager, game_settings, renderer)
                                             break
                                     else:
                                         continue
@@ -937,7 +955,7 @@ def main():
                                                 awaiting = None
                                                 selected_slot = None
                                                 status_message = ""
-                                                turn_end_timer = 0.7
+                                                _schedule_end_turn(game_manager, game_settings, renderer)
                                                 break
                                         else:
                                             continue
@@ -961,8 +979,8 @@ def main():
                                                 })
                                                 awaiting = None
                                                 status_message = ""
-                                                turn_end_timer = ANIM_PAIR_FLY_DURATION + 0.1
-                                            break
+                                                _schedule_end_turn(game_manager, game_settings, renderer)
+                                                break
 
                             elif awaiting == 'pair_opponent':
                                 if pair_opponent_give_slot is None:
@@ -992,7 +1010,7 @@ def main():
                                                 awaiting = None
                                                 pair_opponent_give_slot = None
                                                 status_message = ""
-                                                turn_end_timer = 0.5
+                                                _schedule_end_turn(game_manager, game_settings, renderer)
                                                 break
                                         else:
                                             continue
@@ -1187,22 +1205,6 @@ def main():
                     ai_timer += dt
                     ai_idx = cp.seat_index
 
-                    if game_settings.self_pair_enabled:
-                        ai_decider_check = AIDecider(cp, {'players': game_manager.players})
-                        pairs = ai_decider_check.should_self_pair()
-                        if pairs:
-                            slot_a, slot_b = pairs[0]
-                            pos_a = renderer.get_card_center(ai_idx, slot_a, game_manager)
-                            pos_b = renderer.get_card_center(ai_idx, slot_b, game_manager)
-                            renderer.push_ai_pair_animation(game_manager, pos_a, pos_b)
-                            game_manager.execute_self_pair_action(slot_a, slot_b)
-                            game_manager.check_game_over()
-
-                    if game_settings.shuffle_enabled:
-                        ai_decider_check = AIDecider(cp, {'players': game_manager.players})
-                        if ai_decider_check.should_shuffle():
-                            game_manager.shuffle_player_hand(ai_idx)
-
                     if ai_phase == 'idle':
                         ai_phase = 'drawing'
                         ai_timer = 0.0
@@ -1331,7 +1333,7 @@ def main():
                         ai_timer = 0.0
 
                     if ai_phase == 'ending' and ai_timer >= 0.3:
-                        game_manager.end_turn()
+                        _schedule_end_turn(game_manager, game_settings, renderer)
                         ai_phase = 'idle'
                         ai_timer = 0.0
                         awaiting = None
